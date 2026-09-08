@@ -1,4 +1,6 @@
-# ?? KrishiMitra AI ("Farmer's Friend")
+# ?? AgriNexus — Smart Agriculture Platform
+
+**Live Demo:** [https://krishimi.freebuff.app](https://krishimi.freebuff.app)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
@@ -7,7 +9,7 @@
 [![Leaflet](https://img.shields.io/badge/Leaflet-GIS-green.svg)](https://leafletjs.com/)
 [![Prisma](https://img.shields.io/badge/Prisma-SQLite-indigo.svg)](https://www.prisma.io/)
 
-> **KrishiMitra AI** is a production-grade, AI-powered agricultural intelligence platform designed primarily for farmers in **Odisha and across India**. It combines real-device computer vision disease diagnosis, real-time GPS pinpoint weather forecasting, direct marketplace purchasing (Amazon & Flipkart), verified agro-dealer communications, and 5 cutting-edge agricultural AI engines.
+> **AgriNexus** is a production-grade, AI-powered agricultural intelligence platform designed for farmers **across India**. It combines real-device computer vision disease diagnosis, real-time GPS pinpoint weather forecasting, direct marketplace purchasing (Amazon & Flipkart), verified agro-dealer communications, and 5 cutting-edge agricultural AI engines.
 
 ---
 
@@ -19,7 +21,7 @@
 * AI Plant Doctor diagnoses with disease identification, severity ratings, symptoms, organic and chemical remedies, and Web Speech audio playback.
 
 ### 2. ?? Pinpoint City Geolocation & 5-Day Weather (`/weather`)
-* Real-time GPS auto-detection via `navigator.geolocation` with Nominatim reverse geocoding to resolve exact City, District, and State (e.g. *Cuttack, Cuttack District, Odisha*).
+* Real-time GPS auto-detection via `navigator.geolocation` with Nominatim reverse geocoding to resolve exact City, District, and State.
 * Live temperature, relative humidity, wind speed, rainfall probability, and a 5-day agricultural weather forecast with farming advisories.
 
 ### 3. ?? Agricultural Marketplace with Direct Links (`/products`)
@@ -27,7 +29,7 @@
 * **"Amazon"** (Amber) and **"Flipkart"** (Blue) direct buttons opening store search and product pages in new tabs.
 
 ### 4. ?? Verified Agro Dealers & Direct Communication (`/dealers`)
-* Verified dealer directory across Odisha districts (Cuttack, Bhubaneswar, Puri, Sambalpur, Balasore, Ganjam).
+* Verified dealer directory across India with state-wise filtering and direct communication options.
 * Direct phone call button (`tel:`), direct WhatsApp messaging (`https://wa.me/`), and in-app real-time messaging powered by Socket.IO.
 
 ### 5. ??? Multi-Language Voice Assistant (`/assistant`)
@@ -56,7 +58,7 @@
 * Biophysical modeling projecting 14-day soil moisture decay against the critical 18% wilting threshold, NDVI stress trajectories, and yield/profit impact.
 
 ### 4. ?? Agronomy RAG Knowledge Base & Guardrails (`/agronomy-rag`)
-* Vector knowledge store grounded in verified research manuals from **ICAR**, **OUAT (Odisha University of Agriculture & Technology)**, and **FAO**.
+* Vector knowledge store grounded in verified research manuals from **ICAR** and **FAO**.
 * Automated safety guardrails enforcing chemical dosage upper-bounds and blocking banned agrochemicals (CIBRC compliance).
 
 ### 5. ??? Interactive GIS Field Mapping (`/field-mapping`)
@@ -82,8 +84,8 @@
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/TejPrakash-Vashishtha/KrishiMitra.git
-cd KrishiMitra
+git clone https://github.com/TejPrakash-Vashishtha/AgriNexus.git
+cd AgriNexus
 ```
 
 ### 2. Backend Setup
@@ -102,9 +104,9 @@ npm run dev     # Starts Vite dev server on http://localhost:5173
 ```
 
 ### 4. Access the Application
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+Visit the live deployment at **[https://krishimi.freebuff.app](https://krishimi.freebuff.app)** or run locally:
 
 ---
 
 ## ?? License
-Distributed under the MIT License. Developed for the farmers of Odisha & India.
+Distributed under the MIT License. Developed for the farmers of India.

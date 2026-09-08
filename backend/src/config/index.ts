@@ -7,7 +7,7 @@ dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 export const config = {
   port: parseInt(process.env.PORT || "5000", 10),
   nodeEnv: process.env.NODE_ENV || "development",
-  jwtSecret: process.env.JWT_SECRET || "krishimitra-secret-jwt-key-2026",
+  jwtSecret: process.env.JWT_SECRET || "agrinexus-secret-jwt-key-2026",
   demoMode: process.env.DEMO_MODE === "true" || !process.env.OPENAI_API_KEY,
   openai: {
     apiKey: process.env.OPENAI_API_KEY || "",

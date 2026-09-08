@@ -114,5 +114,5 @@ export async function chatAssistant(message: string, _language: string = "en", _
   if (q.includes("dealer") || q.includes("buy")) {
     return "You can contact verified dealers in your district via the 'Dealers' tab to call or WhatsApp them directly, or buy fertilizers online on Amazon and Flipkart from our 'Products' tab.";
   }
-  return "Namaste! Based on Odisha agricultural guidelines, maintain balanced NPK fertilizer usage, practice crop rotation with pulses, and use certified seeds from Kisan Seva Kendras.";
+  return "Namaste! For balanced crop nutrition, use NPK in proper ratio, practice crop rotation with pulses, and use certified seeds from your nearest Kisan Seva Kendra or Krishi Vigyan Kendra.";
 }

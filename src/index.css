@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased bg-slate-50 text-slate-900;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  }
+}
+
+/* Blurs the whole app while the language onboarding popup is open.
+   Uses the content-blur technique (filter on the app container) because it
+   works in every browser, unlike backdrop-filter on the overlay which needs
+   -webkit- prefixes (Safari) or is unsupported entirely (older browsers). */
+.blur-onboarding {
+  filter: blur(8px);
+  -webkit-filter: blur(8px);
+  pointer-events: none;
+  user-select: none;
+  transform: translateZ(0); /* forces its own layer — keeps blur crisp in Safari */
+}
+
+/* Extra safety: if filter is somehow unsupported, dim the app instead */
+@supports not (filter: blur(1px)) {
+  .blur-onboarding {
+    opacity: 0.25;
+  }
+}
+
+/* Ken-Burns slow zoom/pan for the landing-page live wallpaper */
+@keyframes breathe {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    transform: scale(1.08) translate(-1.5%, -1%);
+  }
+}
+
+/* Liquid-glass panel (landing-page weather widget).
+   Translucent tint + backdrop blur/saturation + glossy edges.
+   The ::before sheen is painted BELOW the widget's absolutely-positioned
+   animation layers, so rain/fog/sun animations stay fully visible. */
+.liquid-glass {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 40%, rgba(255, 255, 255, 0.1) 100%),
+    rgba(10, 40, 32, 0.32);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 30%);
+}

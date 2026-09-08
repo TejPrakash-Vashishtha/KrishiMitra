@@ -29,7 +29,7 @@ app.use("/api", routes);
 app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
-    app: "KrishiMitra AI API Server",
+    app: "AgriNexus API Server",
     time: new Date().toISOString(),
     demoMode: config.demoMode,
   });
@@ -40,7 +40,7 @@ initSocket(server);
 
 const PORT = config.port || 5000;
 server.listen(PORT, () => {
-  console.log(`?? KrishiMitra AI Backend running on http://localhost:${PORT}`);
+  console.log(`?? AgriNexus Backend running on http://localhost:${PORT}`);
   console.log(`?? WebSocket server initialized`);
-  console.log(`?? Ready to serve Odisha & India farmers`);
+  console.log(`?? Ready to serve farmers across India`);
 });

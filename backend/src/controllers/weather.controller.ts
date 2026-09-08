@@ -3,9 +3,9 @@ import { reverseGeocode, getWeatherData } from "../services/weather/weather.serv
 
 export const getCurrentWeather = async (req: Request, res: Response): Promise<void> => {
   try {
-    const lat = req.query.lat ? parseFloat(req.query.lat as string) : 20.4625;
-    const lon = req.query.lon ? parseFloat(req.query.lon as string) : 85.8828;
-    const city = (req.query.city as string) || "Cuttack";
+    const lat = req.query.lat ? parseFloat(req.query.lat as string) : 28.6139;
+    const lon = req.query.lon ? parseFloat(req.query.lon as string) : 77.2090;
+    const city = (req.query.city as string) || "New Delhi";
 
     const weather = await getWeatherData(lat, lon, city);
     res.json({ success: true, ...weather });

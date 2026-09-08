@@ -25,7 +25,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         role: user?.role || "FARMER",
         district: user?.farmerProfile?.district || user?.dealerProfile?.district || "Cuttack",
       },
-      token: "demo-jwt-token-krishimitra",
+      token: "demo-jwt-token-agrinexus",
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -39,7 +39,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const user = await prisma.user.create({
       data: {
         name,
-        email: `user_${Date.now()}@krishimitra.ai`,
+        email: `user_${Date.now()}@agrinexus.ai`,
         phone: phone || "+91 9800000000",
         passwordHash: "demo_hash",
         role: userRole,
@@ -74,7 +74,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         role: user.role,
         district: district || "Cuttack",
       },
-      token: "demo-jwt-token-krishimitra",
+      token: "demo-jwt-token-agrinexus",
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

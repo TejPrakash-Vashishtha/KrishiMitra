@@ -4,8 +4,14 @@ dist/
 */dist/
 build/
 */build/
+isolate/
+.bun/
 .env
+.env.local
+.env.*
 */.env
+*/.env.local
+*/.env.*
 *.sqlite
 *.sqlite-journal
 *.log
