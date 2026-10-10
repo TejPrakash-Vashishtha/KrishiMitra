@@ -25,10 +25,10 @@ export default function VoiceButton({ onTranscript, className = "" }: VoiceButto
     <button
       type="button"
       onClick={toggle}
-      className={`p-2.5 rounded-xl transition-all cursor-pointer ${
+      className={`p-2.5 rounded-xl active:scale-90 transition-all duration-150 cursor-pointer ${
         isListening
           ? "bg-rose-500 text-white animate-pulse shadow-md shadow-rose-200"
-          : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+          : "bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700"
       } ${className}`}
       title={isListening ? "Listening... Click to stop" : "Click to speak"}
     >

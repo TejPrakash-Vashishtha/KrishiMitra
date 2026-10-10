@@ -517,13 +517,17 @@ export default function WeatherWidget({ showForecast = true, variant = "solid" }
     const lon = longitude || 77.2090;
     try {
       const res = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,rain_probability&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=5`
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,rain_probability,is_day&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=5`
       );
       if (!res.ok) throw new Error(`Weather API returned ${res.status}`);
       const data = await res.json();
       const currentCode = data.current?.weather_code ?? 0;
-      // Open-Meteo returns is_day: 1 (day) or 0 (night) — key for correct day/night display
-      const apiIsDay = data.current?.is_day === 1;
+      // Open-Meteo returns is_day: 1 (day) or 0 (night) — key for correct day/night display.
+      // If the field is missing (older cached response), fall back to local clock time.
+      const apiIsDay =
+        typeof data.current?.is_day === "number"
+          ? data.current.is_day === 1
+          : !isNightTime();
       const condInfo = getWMOCondition(currentCode, apiIsDay);
       const current = {
         temp: Math.round(data.current?.temperature_2m ?? 28),

@@ -5,16 +5,85 @@
     <link
       rel="icon"
       type="image/svg+xml"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍾</text></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>"
     />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-    <title>AgriNexus | Smart Agriculture Platform द्रम्म्र যশ্ষিমিত্র</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+    <title>KrishiMitra | Smart Agriculture Platform</title>
+    <meta name="description" content="Smart Agriculture Platform for Indian farmers with crop disease diagnosis, digital twin crop health, mandi prices, and farmer-merchant marketplace." />
+    <meta property="og:title" content="KrishiMitra | Smart Agriculture Platform" />
+    <meta property="og:description" content="Smart Agriculture Platform for Indian farmers with crop disease diagnosis, digital twin crop health, mandi prices, and farmer-merchant marketplace." />
+    <!-- Paint the page background instantly before CSS/JS arrive -->
+    <style>
+      html, body {
+        background: #022c22;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+      }
+      #preloader-container {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at center, #064e3b 0%, #022c22 60%, #03140e 100%);
+        color: white;
+        font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+        text-align: center;
+        padding: 1.5rem;
+      }
+      .pre-logo {
+        width: 80px;
+        height: 80px;
+        border-radius: 1.25rem;
+        background: linear-gradient(135deg, #10b981, #059669);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.25rem;
+        box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.5);
+        margin-bottom: 1.25rem;
+        animation: prePulse 2s infinite ease-in-out;
+      }
+      .pre-bar {
+        width: 180px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 9999px;
+        overflow: hidden;
+        margin-top: 1rem;
+        position: relative;
+      }
+      .pre-fill {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #10b981, #fbbf24);
+        border-radius: 9999px;
+        animation: preFill 1.5s infinite ease-in-out;
+      }
+      @keyframes prePulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.06); }
+      }
+      @keyframes preFill {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;&family=Hindi+Siliguri:wght@300;400;600;700&display=swap" rel="stylesheet">
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">
-    <div id="root"></div>
+    <div id="root">
+      <div id="preloader-container">
+        <div class="pre-logo">🌱</div>
+        <div style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.025em;">Krishi<span style="color: #34d399;">Mitra</span></div>
+        <div style="font-size: 0.75rem; color: #a7f3d0; margin-top: 0.25rem; font-weight: 500;">समृद्ध किसान · समृद्ध भारत</div>
+        <div class="pre-bar"><div class="pre-fill"></div></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

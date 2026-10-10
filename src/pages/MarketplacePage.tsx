@@ -1,8 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Store, Search, Camera, Image, MapPin, Star, MessageCircle, Package, ArrowRight, X, Send, Filter } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useAuth } from "../contexts/AuthContext";
+import { useLocation } from "../contexts/LocationContext";
 import { createOrder } from "../lib/supabaseData";
+import { fetchMarketplace, type MarketProduct } from "../lib/customerData";
+import { productPhoto, productEmoji } from "../lib/productPhotos";
 
 interface ProduceListing {
   id: string;
@@ -31,10 +34,10 @@ interface Message {
 }
 
 const MOCK_LISTINGS: ProduceListing[] = [
-  { id: "1", sellerName: "Ramesh Kumar", sellerType: "farmer", sellerVerified: true, crop: "Paddy (Swarna)", quantity: 45, unit: "quintal", grade: "A", pricePerKg: 22.5, location: "Cuttack, Odisha", distance: "12 km", imageUrl: "https://images.unsplash.com/photo-1536657464919-892534f60d7e?w=400&auto=format&fit=crop&q=80", description: "Premium long grain paddy, freshly harvested. Well-dried, moisture < 14%.", postedDate: "Today", status: "available", rating: 4.8 },
+  { id: "1", sellerName: "Ramesh Kumar", sellerType: "farmer", sellerVerified: true, crop: "Paddy (Swarna)", quantity: 45, unit: "quintal", grade: "A", pricePerKg: 22.5, location: "Cuttack, Odisha", distance: "12 km", imageUrl: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&auto=format&fit=crop&q=80", description: "Premium long grain paddy, freshly harvested. Well-dried, moisture < 14%.", postedDate: "Today", status: "available", rating: 4.8 },
   { id: "2", sellerName: "Suresh Agro Farm", sellerType: "farmer", sellerVerified: true, crop: "Tomato (Hybrid)", quantity: 800, unit: "kg", grade: "B", pricePerKg: 18, location: "Pune, Maharashtra", distance: "5 km", imageUrl: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&auto=format&fit=crop&q=80", description: "Fresh hybrid tomato, slight color variation. Best for processing.", postedDate: "Yesterday", status: "available", rating: 4.5 },
   { id: "3", sellerName: "Priya Mustard Farm", sellerType: "farmer", sellerVerified: false, crop: "Mustard", quantity: 12, unit: "quintal", grade: "A", pricePerKg: 55, location: "Ludhiana, Punjab", distance: "8 km", imageUrl: "https://images.unsplash.com/photo-1615811361523-6bd03d7748e7?w=400&auto=format&fit=crop&q=80", description: "Premium yellow mustard seeds. High oil content, well-cleaned.", postedDate: "2 days ago", status: "available", rating: 4.9 },
-  { id: "4", sellerName: "Green Valley Traders", sellerType: "trader", sellerVerified: true, crop: "Potato", quantity: 200, unit: "quintal", grade: "A", pricePerKg: 14.5, location: "Agra, UP", distance: "15 km", imageUrl: "https://images.unsplash.com/photo-1518977676601-b53f82ber?w=400&auto=format&fit=crop&q=80", description: "Fresh Jyoti variety potatoes, uniform size, well-washed.", postedDate: "Today", status: "available", rating: 4.3 },
+  { id: "4", sellerName: "Green Valley Traders", sellerType: "trader", sellerVerified: true, crop: "Potato", quantity: 200, unit: "quintal", grade: "A", pricePerKg: 14.5, location: "Agra, UP", distance: "15 km", imageUrl: "https://images.unsplash.com/photo-1590165482129-1b8b27698780?w=400&auto=format&fit=crop&q=80", description: "Fresh Jyoti variety potatoes, uniform size, well-washed.", postedDate: "Today", status: "available", rating: 4.3 },
   { id: "5", sellerName: "Karnataka Maize Co.", sellerType: "trader", sellerVerified: true, crop: "Maize", quantity: 50, unit: "quintal", grade: "A", pricePerKg: 18.5, location: "Bengaluru, Karnataka", distance: "20 km", imageUrl: "https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=400&auto=format&fit=crop&q=80", description: "Hybrid maize, high test weight, moisture 12%. Ready for immediate dispatch.", postedDate: "Today", status: "available", rating: 4.6 },
   { id: "6", sellerName: "Anita Reddy Farm", sellerType: "farmer", sellerVerified: true, crop: "Brinjal (Round)", quantity: 300, unit: "kg", grade: "A", pricePerKg: 25, location: "Hyderabad, Telangana", distance: "3 km", imageUrl: "https://images.unsplash.com/photo-1615484477778-ca3b77940c25?w=400&auto=format&fit=crop&q=80", description: "Fresh round brinjal, uniform purple color, no pest damage.", postedDate: "Yesterday", status: "available", rating: 4.7 },
 ];
@@ -45,7 +48,8 @@ const CROPS = ["All", "Paddy", "Tomato", "Mustard", "Potato", "Maize", "Brinjal"
 export default function MarketplacePage() {
   const { t } = useLanguage();
   const { user } = useAuth();
-  const [listings] = useState<ProduceListing[]>(MOCK_LISTINGS);
+  const loc = useLocation();
+  const [listings, setListings] = useState<ProduceListing[]>(MOCK_LISTINGS);
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [selectedListing, setSelectedListing] = useState<ProduceListing | null>(null);
@@ -57,6 +61,51 @@ export default function MarketplacePage() {
   const [showPostForm, setShowPostForm] = useState(false);
   const [placingId, setPlacingId] = useState<string | null>(null);
   const [placedIds, setPlacedIds] = useState<Record<string, boolean>>({});
+
+  // Real farmer listings from farmer_inventory (what farmers add via
+  // Farm to Product / Sell on Marketplace) appear here alongside the
+  // showcase samples. Refreshes when a farmer lists something.
+  const loadRealListings = () => {
+    fetchMarketplace(loc.city || "")
+      .then((products: MarketProduct[]) => {
+        const real: ProduceListing[] = products.map((p) => ({
+          id: `real-${p.id}`,
+          sellerName: p.listing.name,
+          sellerType: "farmer" as const,
+          sellerVerified: p.listing.dealsCount > 20,
+          crop: p.productName,
+          quantity: p.availableKg,
+          unit: "kg",
+          grade: (p.row.grade as "A" | "B" | "C") || "B",
+          pricePerKg: p.pricePerKg,
+          location: [p.listing.village, p.listing.city].filter(Boolean).join(", ") || p.listing.city || "Local farmer",
+          distance: "",
+          imageUrl: productPhoto(p.productName)?.photo || "",
+          description: p.type === "processed"
+            ? `Homemade processed product by ${p.listing.name} — Grade ${p.row.grade} quality. Contact to order.`
+            : `Freshly harvested ${p.productName.toLowerCase()} by ${p.listing.name} — Grade ${p.row.grade} quality, ${p.availableKg} kg available.`,
+          postedDate: "Live listing",
+          status: p.availableKg > 0 ? ("available" as const) : ("reserved" as const),
+          rating: p.listing.rating,
+        }));
+        if (real.length > 0) {
+          setListings((prev) => [
+            ...real,
+            // replace any previously loaded real listings (dedupe on refocus)
+            ...prev.filter((p) => !p.id.startsWith("real-")),
+          ]);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadRealListings();
+    const onFocus = () => loadRealListings();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loc.city]);
 
   const filtered = listings.filter((l) => {
     const matchCrop = filter === "All" || l.crop.includes(filter);
@@ -147,8 +196,25 @@ export default function MarketplacePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((listing) => (
             <div key={listing.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-              <div className="relative h-44 bg-slate-900">
-                <img src={listing.imageUrl} alt={listing.crop} className="w-full h-full object-cover" />
+              <div className="relative h-44 bg-gradient-to-br from-emerald-900 to-slate-900 flex items-center justify-center">
+                {listing.imageUrl ? (
+                  <img
+                    src={listing.imageUrl}
+                    alt={listing.crop}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      if (!img.dataset.fb) {
+                        img.dataset.fb = "1";
+                        img.src = "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&auto=format&fit=crop&q=80";
+                      } else {
+                        img.style.visibility = "hidden";
+                      }
+                    }}
+                  />
+                ) : (
+                  <span className="text-6xl">{productEmoji(listing.crop)}</span>
+                )}
                 <div className="absolute top-3 left-3 flex gap-1.5">
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${GRADE_COLORS[listing.grade]}`}>
                     Grade {listing.grade}

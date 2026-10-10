@@ -116,21 +116,34 @@ export default function AIAssistantPage() {
     }
   }, [chatLang, historyLoaded]);
 
-  // Load conversation history from Supabase
+  // Load conversation history from Supabase (first paint only — a failed
+  // load must never leave the page stuck or swallow an unhandled rejection).
   useEffect(() => {
     if (!isSupabaseConfigured() || !user?.id || historyLoaded) return;
+    let alive = true;
 
-    loadConversationHistory(supabase, user.id, 50).then((history) => {
-      if (history.length > 0) {
-        setMessages(
-          history.map((msg) => ({
-            ...msg,
-            timestamp: new Date().toISOString(),
-          }))
-        );
-      }
-      setHistoryLoaded(true);
-    });
+    loadConversationHistory(supabase, user.id, 50)
+      .then((history) => {
+        if (!alive) return;
+        // Hydrate only on the very first load, so history can never wipe a
+        // conversation the farmer already started in this session.
+        if (history.length > 0) {
+          setMessages(
+            history.map((msg) => ({
+              ...msg,
+              timestamp: new Date().toISOString(),
+            }))
+          );
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setHistoryLoaded(true);
+      });
+
+    return () => {
+      alive = false;
+    };
   }, [user?.id, historyLoaded]);
 
   // Auto-scroll

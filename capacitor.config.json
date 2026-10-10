@@ -1,0 +1,12 @@
+{
+  "appId": "com.krishimitra.app",
+  "appName": "KrishiMitra",
+  "webDir": "dist",
+  "server": {
+    "url": "https://agri.freebuff.app",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

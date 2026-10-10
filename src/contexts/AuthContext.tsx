@@ -12,10 +12,19 @@ export interface User {
   pincode: string;
   village: string;
   address: string;
-  role: "FARMER" | "DEALER" | "ADMIN";
+  role: "FARMER" | "DEALER" | "ADMIN" | "CUSTOMER";
   shopName?: string;
   shopCategory?: string;
   createdAt: string;
+  // ---- Government Schemes layer (Phase 1-4) ----
+  land_acres?: number | null;
+  crop_type?: string | null;
+  annual_income_inr?: number | null;
+  age?: number | null;
+  aadhaar_linked?: boolean;
+  bank_account_linked?: boolean;
+  land_records_uploaded?: boolean;
+  is_income_tax_payer?: boolean;
 }
 
 export interface RegisterInput {
@@ -28,7 +37,7 @@ export interface RegisterInput {
   district: string;
   pincode: string;
   address: string;
-  role: "FARMER" | "DEALER" | "ADMIN";
+  role: "FARMER" | "DEALER" | "ADMIN" | "CUSTOMER";
   shopName?: string;
   shopCategory?: string;
 }
@@ -85,6 +94,14 @@ function mapFarmerRow(row: any): User {
     shopName: row.shop_name || "",
     shopCategory: row.shop_category || "",
     createdAt: row.created_at || new Date().toISOString(),
+    land_acres: row.land_acres ?? null,
+    crop_type: row.crop_type ?? null,
+    annual_income_inr: row.annual_income_inr ?? null,
+    age: row.age ?? null,
+    aadhaar_linked: row.aadhaar_linked ?? false,
+    bank_account_linked: row.bank_account_linked ?? false,
+    land_records_uploaded: row.land_records_uploaded ?? false,
+    is_income_tax_payer: row.is_income_tax_payer ?? false,
   };
 }
 
@@ -233,6 +250,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (error) {
+            // Friendly hint when the DB hasn't allowed the CUSTOMER role yet
+            if (/role_check|check constraint/i.test(error.message || "")) {
+              return {
+                success: false,
+                error:
+                  "Customer accounts are not enabled in the database yet. Run supabase/migrations/007_customer_role.sql in your Supabase SQL Editor (takes 10 seconds), then try again.",
+              };
+            }
             return { success: false, error: `Registration failed: ${error.message}` };
           }
 
@@ -262,7 +287,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           pincode: data.pincode || "",
           village: data.village || "",
           address: data.address || "",
-          role: "FARMER",
+          role: data.role || "FARMER",
           createdAt: new Date().toISOString(),
           pinHash,
         };
@@ -302,7 +327,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } = updated;
       await supabase
         .from("farmers")
-        .update({ ...fields, updated_at: new Date().toISOString() })
+        .update({ ...(fields as Record<string, unknown>), updated_at: new Date().toISOString() })
         .eq("id", user.id);
     } else {
       const users = getLocalUsers();

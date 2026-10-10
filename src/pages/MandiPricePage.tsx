@@ -4,6 +4,7 @@ import { logSearch } from "../contexts/AuthContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { fetchMandiHistory, saveMandiSnapshot, MandiHistoryRow, todayStr } from "../lib/supabaseData";
+import { MANDI_LOCATIONS } from "../lib/mandiData";
 
 interface MandiPrice {
   id: string;
@@ -17,116 +18,6 @@ interface MandiPrice {
   changePercent: number;
 }
 
-// Comprehensive Indian mandi locations database
-const MANDI_LOCATIONS: { city: string; state: string; district: string; mandis: string[] }[] = [
-  // Delhi
-  { city: "Delhi", state: "Delhi", district: "North Delhi", mandis: ["Azadpur Mandi", "Ghazipur Mandi"] },
-  { city: "Delhi", state: "Delhi", district: "South Delhi", mandis: ["Okhla Mandi"] },
-  { city: "Delhi", state: "Delhi", district: "South West Delhi", mandis: ["Najafgarh Mandi"] },
-  { city: "Delhi", state: "Delhi", district: "East Delhi", mandis: ["Ghazipur Mandi", "Kondli Mandi"] },
-  // Maharashtra
-  { city: "Mumbai", state: "Maharashtra", district: "Navi Mumbai", mandis: ["Vashi APMC", "Kharghar Mandi"] },
-  { city: "Pune", state: "Maharashtra", district: "Pune", mandis: ["Pune APMC", "Hadapsar Mandi"] },
-  { city: "Nashik", state: "Maharashtra", district: "Nashik", mandis: ["Nashik APMC", "Pimpalgaon Mandi"] },
-  { city: "Nagpur", state: "Maharashtra", district: "Nagpur", mandis: ["Nagpur APMC", "Sitabuldi Mandi"] },
-  { city: "Aurangabad", state: "Maharashtra", district: "Aurangabad", mandis: ["Aurangabad APMC"] },
-  { city: "Solapur", state: "Maharashtra", district: "Solapur", mandis: ["Solapur APMC"] },
-  { city: "Kolhapur", state: "Maharashtra", district: "Kolhapur", mandis: ["Kolhapur APMC"] },
-  { city: "Jalna", state: "Maharashtra", district: "Jalna", mandis: ["Jalna APMC"] },
-  // Karnataka
-  { city: "Bengaluru", state: "Karnataka", district: "Bengaluru", mandis: ["BMIC Market", "Yeshwanthpur APMC"] },
-  { city: "Mysuru", state: "Karnataka", district: "Mysuru", mandis: ["Mysuru APMC"] },
-  { city: "Davangere", state: "Karnataka", district: "Davangere", mandis: ["Davangere APMC"] },
-  { city: "Hubli", state: "Karnataka", district: "Dharwad", mandis: ["Hubli APMC"] },
-  { city: "Belgaum", state: "Karnataka", district: "Belgaum", mandis: ["Belgaum APMC"] },
-  { city: "Mangalore", state: "Karnataka", district: "Dakshina Kannada", mandis: ["Mangalore APMC"] },
-  // Tamil Nadu
-  { city: "Chennai", state: "Tamil Nadu", district: "Chennai", mandis: ["Koyambedu Market", "Tondiarpet Mandi"] },
-  { city: "Coimbatore", state: "Tamil Nadu", district: "Coimbatore", mandis: ["Coimbatore APMC"] },
-  { city: "Madurai", state: "Tamil Nadu", district: "Madurai", mandis: ["Madurai APMC"] },
-  { city: "Salem", state: "Tamil Nadu", district: "Salem", mandis: ["Salem APMC"] },
-  { city: "Tiruchirappalli", state: "Tamil Nadu", district: "Tiruchirappalli", mandis: ["Trichy APMC"] },
-  // Uttar Pradesh
-  { city: "Lucknow", state: "Uttar Pradesh", district: "Lucknow", mandis: ["Ghazipur Mandi Lucknow", "Aminabad Mandi"] },
-  { city: "Agra", state: "Uttar Pradesh", district: "Agra", mandis: ["Agra Mandi", "Sadar Bazaar Mandi"] },
-  { city: "Varanasi", state: "Uttar Pradesh", district: "Varanasi", mandis: ["Varanasi Mandi", "Bhadohi Mandi"] },
-  { city: "Kanpur", state: "Uttar Pradesh", district: "Kanpur", mandis: ["Kanpur Mandi", "Jajmau Mandi"] },
-  { city: "Allahabad", state: "Uttar Pradesh", district: "Prayagraj", mandis: ["Allahabad APMC"] },
-  { city: "Meerut", state: "Uttar Pradesh", district: "Meerut", mandis: ["Meerut Mandi"] },
-  { city: "Aligarh", state: "Uttar Pradesh", district: "Aligarh", mandis: ["Aligarh Mandi"] },
-  { city: "Gorakhpur", state: "Uttar Pradesh", district: "Gorakhpur", mandis: ["Gorakhpur Mandi"] },
-  // Punjab
-  { city: "Ludhiana", state: "Punjab", district: "Ludhiana", mandis: ["Ludhiana Mandi", "Khanna Mandi"] },
-  { city: "Amritsar", state: "Punjab", district: "Amritsar", mandis: ["Amritsar Mandi"] },
-  { city: "Jalandhar", state: "Punjab", district: "Jalandhar", mandis: ["Jalandhar Mandi"] },
-  { city: "Patiala", state: "Punjab", district: "Patiala", mandis: ["Patiala Mandi"] },
-  // Rajasthan
-  { city: "Jaipur", state: "Rajasthan", district: "Jaipur", mandis: ["Jaipur APMC", "Sanganer Mandi"] },
-  { city: "Jodhpur", state: "Rajasthan", district: "Jodhpur", mandis: ["Jodhpur APMC"] },
-  { city: "Kota", state: "Rajasthan", district: "Kota", mandis: ["Kota Mandi"] },
-  { city: "Ajmer", state: "Rajasthan", district: "Ajmer", mandis: ["Ajmer Mandi"] },
-  { city: "Udaipur", state: "Rajasthan", district: "Udaipur", mandis: ["Udaipur Mandi"] },
-  // Gujarat
-  { city: "Ahmedabad", state: "Gujarat", district: "Ahmedabad", mandis: ["Ahmedabad APMC", " Naroda Mandi"] },
-  { city: "Surat", state: "Gujarat", district: "Surat", mandis: ["Surat APMC"] },
-  { city: "Rajkot", state: "Gujarat", district: "Rajkot", mandis: ["Rajkot APMC"] },
-  { city: "Vadodara", state: "Gujarat", district: "Vadodara", mandis: ["Vadodara APMC"] },
-  { city: "Anand", state: "Gujarat", district: "Anand", mandis: ["Anand APMC", "Kheda Mandi"] },
-  // Madhya Pradesh
-  { city: "Bhopal", state: "Madhya Pradesh", district: "Bhopal", mandis: ["Bhopal APMC"] },
-  { city: "Indore", state: "Madhya Pradesh", district: "Indore", mandis: ["Indore APMC", "Pithampur Mandi"] },
-  { city: "Jabalpur", state: "Madhya Pradesh", district: "Jabalpur", mandis: ["Jabalpur APMC"] },
-  { city: "Gwalior", state: "Madhya Pradesh", district: "Gwalior", mandis: ["Gwalior Mandi"] },
-  // West Bengal
-  { city: "Kolkata", state: "West Bengal", district: "Kolkata", mandis: ["Sealdah Mandi", "Howrah Mandi"] },
-  { city: "Siliguri", state: "West Bengal", district: "Darjeeling", mandis: ["Siliguri APMC"] },
-  { city: "Burdwan", state: "West Bengal", district: "Bardhaman", mandis: ["Burdwan Mandi"] },
-  // Bihar
-  { city: "Patna", state: "Bihar", district: "Patna", mandis: ["Patna APMC", "Bailey Road Mandi"] },
-  { city: "Gaya", state: "Bihar", district: "Gaya", mandis: ["Gaya Mandi"] },
-  { city: "Muzaffarpur", state: "Bihar", district: "Muzaffarpur", mandis: ["Muzaffarpur Mandi"] },
-  // Odisha
-  { city: "Bhubaneswar", state: "Odisha", district: "Khordha", mandis: ["Bhubaneswar APMC"] },
-  { city: "Cuttack", state: "Odisha", district: "Cuttack", mandis: ["Cuttack APMC", "Mandapada Mandi"] },
-  { city: "Sambalpur", state: "Odisha", district: "Sambalpur", mandis: ["Sambalpur APMC"] },
-  { city: "Berhampur", state: "Odisha", district: "Ganjam", mandis: ["Berhampur Mandi"] },
-  // Telangana
-  { city: "Hyderabad", state: "Telangana", district: "Hyderabad", mandis: ["Malkajgiri APMC", "Malakpet Mandi"] },
-  { city: "Warangal", state: "Telangana", district: "Warangal", mandis: ["Warangal APMC"] },
-  { city: "Nizamabad", state: "Telangana", district: "Nizamabad", mandis: ["Nizamabad APMC"] },
-  // Andhra Pradesh
-  { city: "Vijayawada", state: "Andhra Pradesh", district: "Krishna", mandis: ["Vijayawada APMC"] },
-  { city: "Visakhapatnam", state: "Andhra Pradesh", district: "Visakhapatnam", mandis: ["Vizag Mandi"] },
-  { city: "Guntur", state: "Andhra Pradesh", district: "Guntur", mandis: ["Guntur APMC", "Ponnur Mandi"] },
-  { city: "Tirupati", state: "Andhra Pradesh", district: "Chittoor", mandis: ["Tirupati Mandi"] },
-  // Haryana
-  { city: "Faridabad", state: "Haryana", district: "Faridabad", mandis: ["Faridabad Mandi"] },
-  { city: "Hisar", state: "Haryana", district: "Hisar", mandis: ["Hisar Mandi"] },
-  { city: "Karnal", state: "Haryana", district: "Karnal", mandis: ["Karnal Mandi"] },
-  { city: "Panipat", state: "Haryana", district: "Panipat", mandis: ["Panipat Mandi"] },
-  // Jharkhand
-  { city: "Ranchi", state: "Jharkhand", district: "Ranchi", mandis: ["Ranchi APMC"] },
-  { city: "Jamshedpur", state: "Jharkhand", district: "East Singhbhum", mandis: ["Jamshedpur Mandi"] },
-  // Chhattisgarh
-  { city: "Raipur", state: "Chhattisgarh", district: "Raipur", mandis: ["Raipur APMC"] },
-  // Assam
-  { city: "Guwahati", state: "Assam", district: "Kamrup", mandis: ["Fancy Bazar Mandi", "Paltan Bazar Mandi"] },
-  // Kerala
-  { city: "Kochi", state: "Kerala", district: "Ernakulam", mandis: ["Kochi APMC"] },
-  { city: "Thiruvananthapuram", state: "Kerala", district: "Thiruvananthapuram", mandis: ["Trivandrum Mandi"] },
-  // Goa
-  { city: "Panaji", state: "Goa", district: "North Goa", mandis: ["Mapusa Mandi"] },
-  // Jammu & Kashmir
-  { city: "Srinagar", state: "Jammu & Kashmir", district: "Srinagar", mandis: ["Srinagar Mandi"] },
-  { city: "Jammu", state: "Jammu & Kashmir", district: "Jammu", mandis: ["Jammu APMC"] },
-  // Himachal Pradesh
-  { city: "Shimla", state: "Himachal Pradesh", district: "Shimla", mandis: ["Shimla Mandi"] },
-  // Uttarakhand
-  { city: "Dehradun", state: "Uttarakhand", district: "Dehradun", mandis: ["Dehradun Mandi"] },
-  { city: "Haridwar", state: "Uttarakhand", district: "Haridwar", mandis: ["Haridwar Mandi"] },
-  // Chhattisgarh
-  { city: "Bilaspur", state: "Chhattisgarh", district: "Bilaspur", mandis: ["Bilaspur Mandi"] },
-];
 
 // Generate price data for any mandi
 function generateMandiPrice(mandi: string, district: string, state: string, crop: string, idx: number): MandiPrice {

@@ -22,6 +22,9 @@ export interface InventoryRow {
   price_per_unit: number;
   status: string;
   notes: string;
+  allocated_merchant_kg?: number; // portion routed to the merchant channel
+  allocated_pool_kg?: number;    // portion routed to the customer pool (collection point)
+  allocation_note?: string;
   created_at: string;
   updated_at: string;
 }

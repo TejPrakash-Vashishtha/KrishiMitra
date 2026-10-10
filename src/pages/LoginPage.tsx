@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Sprout, AlertCircle, Phone, KeyRound, ArrowLeft, CheckCircle, Store } from "lucide-react";
+import { Sprout, AlertCircle, Phone, KeyRound, ArrowLeft, CheckCircle, Store, ShoppingBag } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { useLanguage } from "../contexts/LanguageContext";
 
 export default function LoginPage() {
   const [phone, setPhone] = useState("");
@@ -9,10 +10,13 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
   const returnTo = params.get("returnTo") || "/dashboard";
-  const asMerchant = params.get("as") === "merchant";
+  const asParam = params.get("as");
+  const asMerchant = asParam === "merchant";
+  const asCustomer = asParam === "customer";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +36,11 @@ export default function LoginPage() {
       const result = await login(fullPhone, pin);
       if (result.success) {
         // Account role decides the destination (source of truth is the DB)
-        const isDealer = result.user?.role === "DEALER";
-        navigate(isDealer && returnTo === "/dashboard" ? "/merchant" : returnTo);
+        const role = result.user?.role;
+        const isDealer = role === "DEALER";
+        const isCustomer = role === "CUSTOMER";
+        const fallback = isDealer ? "/merchant" : isCustomer ? "/shop" : "/dashboard";
+        navigate(returnTo === "/dashboard" ? fallback : returnTo);
       } else {
         setError(result.error || "Login failed. Please try again.");
       }
@@ -44,28 +51,34 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-green-900 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 space-y-6">
+    <div className="min-h-dvh-fill w-full bg-gradient-to-b from-emerald-900 via-emerald-800 to-green-900 flex items-center justify-center px-4 py-10 relative overflow-hidden">
+      {/* Ambient light blooms behind the glass card */}
+      <div aria-hidden className="pointer-events-none absolute -top-24 -left-24 w-96 h-96 rounded-full bg-emerald-400/20 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-32 -right-20 w-[28rem] h-[28rem] rounded-full bg-green-400/15 blur-3xl" />
+
+      <div className="liquid-glass max-w-md w-full rounded-3xl p-8 space-y-6 relative z-10">
         <div className="text-center">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-green-500 text-white flex items-center justify-center mx-auto mb-3 shadow-lg shadow-emerald-500/30">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-green-500 text-white flex items-center justify-center mx-auto mb-3 shadow-lg shadow-emerald-500/40">
             <Sprout className="w-7 h-7" />
           </div>
-          <h1 className="text-xl font-bold text-slate-900">AgriNexus</h1>
-          <p className="text-xs text-slate-500 mt-1">Smart Kheti Sahayak</p>
+          <h1 className="text-xl font-bold text-white drop-shadow">{t("brandName")}</h1>
+          <p className="text-xs text-emerald-100/80 mt-1">Smart Kheti Sahayak</p>
           <span
             className={`inline-flex items-center gap-1.5 mt-2.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wide ${
-              asMerchant
-                ? "bg-violet-50 text-violet-700 border border-violet-200"
-                : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+              asCustomer
+                ? "bg-fuchsia-50/90 text-fuchsia-700 border border-fuchsia-200"
+                : asMerchant
+                ? "bg-violet-50/90 text-violet-700 border border-violet-200"
+                : "bg-emerald-50/90 text-emerald-700 border border-emerald-200"
             }`}
           >
-            {asMerchant ? <Store className="w-3 h-3" /> : <Sprout className="w-3 h-3" />}
-            {asMerchant ? "MERCHANT PORTAL" : "FARMER PORTAL"}
+            {asMerchant ? <Store className="w-3 h-3" /> : asCustomer ? <ShoppingBag className="w-3 h-3" /> : <Sprout className="w-3 h-3" />}
+            {asMerchant ? "MERCHANT PORTAL" : asCustomer ? "CUSTOMER PORTAL" : "FARMER PORTAL"}
           </span>
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/15 border border-rose-300/30 text-rose-100 text-xs backdrop-blur-sm">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -73,9 +86,9 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Mobile Number</label>
+            <label className="block text-xs font-semibold text-emerald-50/90 mb-1.5">Mobile Number</label>
             <div className="relative">
-              <Phone className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+              <Phone className="absolute left-3 top-3 w-4 h-4 text-emerald-200/70" />
               <input
                 type="tel"
                 required
@@ -83,17 +96,17 @@ export default function LoginPage() {
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="Enter 10-digit mobile number"
                 maxLength={10}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/30 bg-white/10 text-white placeholder:text-emerald-100/50 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300/70 focus:bg-white/15 transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              PIN <span className="text-slate-400 font-normal">(4-6 digits)</span>
+            <label className="block text-xs font-semibold text-emerald-50/90 mb-1.5">
+              PIN <span className="text-emerald-100/60 font-normal">(4-6 digits)</span>
             </label>
             <div className="relative">
-              <KeyRound className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+              <KeyRound className="absolute left-3 top-3 w-4 h-4 text-emerald-200/70" />
               <input
                 type="password"
                 required
@@ -101,7 +114,7 @@ export default function LoginPage() {
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 placeholder="Enter your PIN"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/30 bg-white/10 text-white placeholder:text-emerald-100/50 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300/70 focus:bg-white/15 transition-colors"
               />
             </div>
           </div>
@@ -109,10 +122,10 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-md disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold text-sm shadow-lg shadow-emerald-900/40 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer transition-colors"
           >
             {loading ? (
-              <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Logging in...</span>
+              <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-emerald-900/30 border-t-emerald-900 rounded-full animate-spin" /> Logging in...</span>
             ) : (
               <>
                 <CheckCircle className="w-4 h-4" />
@@ -122,17 +135,17 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="text-center pt-3 border-t border-slate-100">
-          <p className="text-xs text-slate-500">
-            {asMerchant ? "Naya merchant hai?" : "Naya kisan hai?"}{" "}
+        <div className="text-center pt-3 border-t border-white/15">
+          <p className="text-xs text-emerald-100/80">
+            {asMerchant ? "Naya merchant hai?" : asCustomer ? "Naya customer hai?" : "Naya kisan hai?"}{" "}
             <Link
-              to={asMerchant ? "/register?as=merchant" : "/register"}
-              className="text-emerald-600 font-semibold hover:underline"
+              to={asMerchant ? "/register?as=merchant" : asCustomer ? "/register?as=customer" : "/register"}
+              className="text-emerald-300 font-semibold hover:text-emerald-200 hover:underline"
             >
               Register as new user
             </Link>
           </p>
-          <Link to="/" className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-emerald-600 mt-2">
+          <Link to="/" className="inline-flex items-center gap-1 text-[11px] text-emerald-100/60 hover:text-emerald-200 mt-2">
             <ArrowLeft className="w-3 h-3" /> Back to Home
           </Link>
         </div>

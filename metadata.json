@@ -1,0 +1,8 @@
+{
+  "name": "KrishiMitra",
+  "description": "Smart Agriculture Platform for Indian farmers with crop disease diagnosis, digital twin crop health, mandi prices, and farmer-merchant marketplace.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

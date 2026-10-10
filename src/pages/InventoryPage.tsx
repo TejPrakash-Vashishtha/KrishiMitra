@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Package, Plus, Trash2, TrendingUp, Scale, Sparkles, X, LogIn } from "lucide-react";
+import { Package, Plus, Trash2, TrendingUp, Scale, Sparkles, X, LogIn, Store, Users } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -11,6 +11,11 @@ import {
   subscribeInventory,
   InventoryRow,
 } from "../lib/supabaseData";
+import {
+  contributeToPool,
+  fetchCollectionPoints,
+  CollectionPoint,
+} from "../lib/collectionData";
 
 interface Item {
   id: string;
@@ -23,6 +28,8 @@ interface Item {
   pricePerKg: number;
   status: "available" | "listed" | "sold";
   notes: string;
+  allocatedMerchantKg?: number; // portion routed to the merchant channel
+  allocatedPoolKg?: number; // portion routed to the customer pool (collection point)
 }
 
 // ---- mapping between DB rows and the UI ----
@@ -38,6 +45,8 @@ function toUI(row: InventoryRow): Item {
     pricePerKg: Number(row.price_per_unit) || 0,
     status: (row.status || "available") as Item["status"],
     notes: row.notes || "",
+    allocatedMerchantKg: Number(row.allocated_merchant_kg) || 0,
+    allocatedPoolKg: Number(row.allocated_pool_kg) || 0,
   };
 }
 
@@ -77,6 +86,11 @@ function priceSuggestion(cropName: string, grade: string): number {
   return Math.round(base * gradeMultiplier * 100) / 100;
 }
 
+function currentSeason(): string {
+  const m = new Date().getMonth();
+  return m >= 5 && m <= 9 ? `Kharif ${new Date().getFullYear()}` : `Rabi ${new Date().getFullYear()}`;
+}
+
 const DEFAULT_NEW_ITEM = {
   cropName: "Paddy",
   quantity: "",
@@ -99,6 +113,16 @@ export default function InventoryPage() {
   const [newItem, setNewItem] = useState(DEFAULT_NEW_ITEM);
   const [adjustId, setAdjustId] = useState<string | null>(null);
   const [adjustValue, setAdjustValue] = useState("");
+  // Harvest allocation split — one harvest record, two channels
+  const [splitItem, setSplitItem] = useState<Item | null>(null);
+  const [splitMerchant, setSplitMerchant] = useState("");
+  const [splitPool, setSplitPool] = useState("");
+  const [splitCpId, setSplitCpId] = useState("");
+  const [splitPrice, setSplitPrice] = useState("");
+  const [splitReady, setSplitReady] = useState("");
+  const [splitError, setSplitError] = useState("");
+  const [splitting, setSplitting] = useState(false);
+  const [collectionPoints, setCollectionPoints] = useState<CollectionPoint[]>([]);
 
   const refresh = useCallback(async () => {
     if (!user) {
@@ -123,6 +147,14 @@ export default function InventoryPage() {
       refresh();
     });
   }, [user, refresh]);
+
+  // Collection points for the customer-pool allocation target
+  useEffect(() => {
+    fetchCollectionPoints().then((pts) => {
+      setCollectionPoints(pts);
+      if (pts.length > 0) setSplitCpId((prev) => prev || pts[0].id);
+    });
+  }, []);
 
   const addNewItem = async () => {
     if (!user || !newItem.quantity || !newItem.cropName) return;
@@ -164,6 +196,67 @@ export default function InventoryPage() {
     setAdjustId(null);
     setAdjustValue("");
     refresh();
+  };
+
+  // ---- Harvest allocation split (merchant vs customer pool) ----
+  const openSplit = (item: Item) => {
+    setSplitItem(item);
+    setSplitMerchant("");
+    setSplitPool("");
+    setSplitPrice(String(item.pricePerKg || 0));
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    setSplitReady(d.toISOString().split("T")[0]);
+    setSplitError("");
+  };
+
+  const applySplit = async () => {
+    if (!user || !splitItem) return;
+    const unitFactor = splitItem.unit === "quintal" ? 100 : 1;
+    const totalKg = splitItem.quantity * unitFactor;
+    const merchantKg = (parseFloat(splitMerchant) || 0) * unitFactor;
+    const poolKg = (parseFloat(splitPool) || 0) * unitFactor;
+    if (merchantKg + poolKg <= 0) {
+      setSplitError("Enter at least one allocation.");
+      return;
+    }
+    if (merchantKg + poolKg > totalKg) {
+      setSplitError("Allocations cannot exceed the total harvest.");
+      return;
+    }
+    if (poolKg > 0 && !splitCpId) {
+      setSplitError("Choose a collection point for the pool portion.");
+      return;
+    }
+    setSplitting(true);
+    try {
+      if (poolKg > 0) {
+        const res = await contributeToPool(
+          user.id,
+          user.name,
+          { id: splitItem.id, cropName: splitItem.cropName, quantityKg: poolKg },
+          splitCpId,
+          poolKg,
+          parseFloat(splitPrice) || splitItem.pricePerKg || 0,
+          splitItem.grade,
+          currentSeason(),
+          splitReady
+        );
+        if (!res.ok) {
+          setSplitError(res.error || "Could not add to the pool. Please try again.");
+          return;
+        }
+      }
+      await updateInventoryItem(user.id, splitItem.id, {
+        allocated_merchant_kg: (splitItem.allocatedMerchantKg || 0) + merchantKg,
+        allocated_pool_kg: (splitItem.allocatedPoolKg || 0) + poolKg,
+        allocation_note: "Split between merchant and customer pool channels",
+      });
+      setSplitItem(null);
+      refresh();
+    } finally {
+      setSplitting(false);
+    }
   };
 
   const filtered = inventory.filter((item) => filter === "all" || item.status === filter);
@@ -338,6 +431,20 @@ export default function InventoryPage() {
                       <td className="px-5 py-4">
                         <p className="text-xs font-bold text-slate-900">{item.cropName}</p>
                         {item.notes && <p className="text-[10px] text-slate-400 mt-0.5">{item.notes}</p>}
+                        {(item.allocatedMerchantKg || 0) + (item.allocatedPoolKg || 0) > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {(item.allocatedMerchantKg || 0) > 0 && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[9px] font-bold">
+                                🏪 Merchant: {item.allocatedMerchantKg} kg
+                              </span>
+                            )}
+                            {(item.allocatedPoolKg || 0) > 0 && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700 text-[9px] font-bold">
+                                👥 Pool: {item.allocatedPoolKg} kg
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-5 py-4">
                         <span className="text-xs font-bold text-slate-800">{item.quantity}</span>
@@ -373,13 +480,22 @@ export default function InventoryPage() {
                               <button onClick={() => { setAdjustId(null); setAdjustValue(""); }} className="px-2 py-1 rounded-lg bg-slate-200 text-slate-600 text-[10px] font-bold cursor-pointer">X</button>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => { setAdjustId(item.id); setAdjustValue(""); }}
-                              title="Add / remove stock"
-                              className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => openSplit(item)}
+                                title="Split harvest between merchant & customer pool"
+                                className="p-1.5 rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 cursor-pointer"
+                              >
+                                <Users className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => { setAdjustId(item.id); setAdjustValue(""); }}
+                                title="Add / remove stock"
+                                className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            </>
                           )}
                           <button
                             onClick={() => deleteItem(item.id)}
@@ -397,6 +513,91 @@ export default function InventoryPage() {
             </div>
           )}
         </div>
+
+        {/* Harvest Allocation Split Modal — one harvest, two channels (merchant + customer pool) */}
+        {splitItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setSplitItem(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-5 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-violet-600" />
+                    Split Harvest — {splitItem.cropName}
+                  </h3>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Total {splitItem.quantity} {splitItem.unit} ({splitItem.unit === "quintal" ? splitItem.quantity * 100 : splitItem.quantity} kg) — decide how much goes where
+                  </p>
+                </div>
+                <button onClick={() => setSplitItem(null)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-5 max-h-[70vh] overflow-y-auto space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Merchant channel */}
+                  <div className="rounded-2xl border-2 border-blue-100 bg-blue-50/40 p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Store className="w-4 h-4 text-blue-600" />
+                      <p className="text-xs font-bold text-slate-900">Merchant Channel</p>
+                    </div>
+                    <p className="text-[10px] text-slate-500">Sold to dealers/traders via the existing marketplace flow. Unchanged.</p>
+                    <input
+                      type="number" value={splitMerchant} onChange={(e) => setSplitMerchant(e.target.value)}
+                      placeholder={`kg (max ${splitItem.quantity * (splitItem.unit === "quintal" ? 100 : 1)})`}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  {/* Customer pool channel */}
+                  <div className="rounded-2xl border-2 border-violet-200 bg-violet-50/40 p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-violet-600" />
+                      <p className="text-xs font-bold text-slate-900">Customer Pool (Direct)</p>
+                    </div>
+                    <p className="text-[10px] text-slate-500">Added to a collection point — customers pre-order, you get paid on delivery.</p>
+                    <input
+                      type="number" value={splitPool} onChange={(e) => setSplitPool(e.target.value)}
+                      placeholder="kg to the pool"
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                </div>
+
+                {splitPool && parseFloat(splitPool) > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Collection Point</label>
+                      <select value={splitCpId} onChange={(e) => setSplitCpId(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white">
+                        {collectionPoints.map((cp) => <option key={cp.id} value={cp.id}>{cp.name} — {cp.region}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Pool Price (₹/kg)</label>
+                      <input type="number" value={splitPrice} onChange={(e) => setSplitPrice(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Ready From</label>
+                      <input type="date" value={splitReady} onChange={(e) => setSplitReady(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                    </div>
+                  </div>
+                )}
+
+                {splitError && <p className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-3 py-2 rounded-xl">{splitError}</p>}
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between pt-2 border-t border-slate-100">
+                  <p className="text-[10px] text-slate-400">
+                    Allocated so far: 🏪 {(splitItem.allocatedMerchantKg || 0).toLocaleString()} kg · 👥 {(splitItem.allocatedPoolKg || 0).toLocaleString()} kg
+                  </p>
+                  <button
+                    onClick={applySplit} disabled={splitting}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-bold text-xs shadow-md transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {splitting ? "Allocating…" : "Allocate to Channels"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Add Harvest Modal — centered popup so it is always visible on click */}
         {showAddForm && (

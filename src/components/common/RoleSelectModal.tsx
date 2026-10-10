@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Sprout, Store, Users } from "lucide-react";
+import { Sprout, Store, Users, ShoppingBag } from "lucide-react";
 
 interface RoleSelectModalProps {
   open: boolean;
@@ -52,7 +52,7 @@ export default function RoleSelectModal({ open, onSelect }: RoleSelectModalProps
         <div className="p-5 space-y-3">
           <button
             onClick={() => choose("/login?as=farmer")}
-            className="group w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50/50 transition-all cursor-pointer text-left"
+            className="group w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50/50 active:scale-[0.98] transition-all duration-150 cursor-pointer text-left shadow-xs hover:shadow-sm"
           >
             <span className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
               <Sprout className="w-6 h-6" />
@@ -69,7 +69,7 @@ export default function RoleSelectModal({ open, onSelect }: RoleSelectModalProps
 
           <button
             onClick={() => choose("/login?as=merchant")}
-            className="group w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50 transition-all cursor-pointer text-left"
+            className="group w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50 active:scale-[0.98] transition-all duration-150 cursor-pointer text-left shadow-xs hover:shadow-sm"
           >
             <span className="w-12 h-12 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center shrink-0 group-hover:bg-violet-500 group-hover:text-white transition-colors">
               <Store className="w-6 h-6" />
@@ -80,6 +80,23 @@ export default function RoleSelectModal({ open, onSelect }: RoleSelectModalProps
               </span>
               <span className="block text-xs text-slate-500 mt-0.5">
                 Buy produce, manage your shop &amp; connect with farmers
+              </span>
+            </span>
+          </button>
+
+          <button
+            onClick={() => choose("/login?as=customer")}
+            className="group w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 bg-white hover:border-amber-400 hover:bg-amber-50/50 active:scale-[0.98] transition-all duration-150 cursor-pointer text-left shadow-xs hover:shadow-sm"
+          >
+            <span className="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+              <ShoppingBag className="w-6 h-6" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-base font-bold text-slate-900 tracking-wide">
+                CUSTOMER
+              </span>
+              <span className="block text-xs text-slate-500 mt-0.5">
+                Buy fresh produce directly from local farmers
               </span>
             </span>
           </button>

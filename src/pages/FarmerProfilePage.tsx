@@ -14,6 +14,16 @@ export default function FarmerProfilePage() {
   const [district, setDistrict] = useState(user?.district || "");
   const [pincode, setPincode] = useState(user?.pincode || "");
   const [address, setAddress] = useState(user?.address || "");
+  // Scheme-matching fields (Government Schemes layer)
+  const [landAcres, setLandAcres] = useState<string>(
+    (user as any)?.land_acres != null ? String((user as any).land_acres) : ""
+  );
+  const [cropType, setCropType] = useState((user as any)?.crop_type || "");
+  const [age, setAge] = useState<string>((user as any)?.age != null ? String((user as any).age) : "");
+  const [aadhaarLinked, setAadhaarLinked] = useState((user as any)?.aadhaar_linked ?? false);
+  const [bankLinked, setBankLinked] = useState((user as any)?.bank_account_linked ?? false);
+  const [landRecords, setLandRecords] = useState((user as any)?.land_records_uploaded ?? false);
+  const [incomeTaxPayer, setIncomeTaxPayer] = useState((user as any)?.is_income_tax_payer ?? false);
 
   if (!user) {
     return (
@@ -31,7 +41,16 @@ export default function FarmerProfilePage() {
   }
 
   const handleSave = () => {
-    updateProfile({ name, village, city, state, district, pincode, address });
+    updateProfile({
+      name, village, city, state, district, pincode, address,
+      land_acres: landAcres.trim() === "" ? null : Number(landAcres),
+      crop_type: cropType,
+      age: age.trim() === "" ? null : Number(age),
+      aadhaar_linked: aadhaarLinked,
+      bank_account_linked: bankLinked,
+      land_records_uploaded: landRecords,
+      is_income_tax_payer: incomeTaxPayer,
+    } as any);
     setEditing(false);
   };
 
@@ -142,6 +161,80 @@ export default function FarmerProfilePage() {
             <div>
               <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Account Bana</label>
               <p className="text-xs text-slate-500">{new Date(user.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ===== Farm details for Government Schemes matching ===== */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-base font-bold text-slate-900">Farm & Documents</h2>
+            <button
+              onClick={() => editing ? handleSave() : setEditing(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${editing ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+            >
+              {editing ? <><Save className="w-3.5 h-3.5" /> Save</> : <><Edit3 className="w-3.5 h-3.5" /> Edit</>}
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-400 mb-4">
+            These details are used to check which government schemes you qualify for. Only you can see them.
+          </p>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Zameen (Land, acres)</label>
+                {editing ? (
+                  <input type="number" min="0" step="0.1" value={landAcres} onChange={(e) => setLandAcres(e.target.value)} placeholder="e.g. 2" className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                ) : (
+                  <p className="text-sm font-semibold text-slate-900">{(user as any).land_acres != null ? `${(user as any).land_acres} acres` : "—"}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Main Crop</label>
+                {editing ? (
+                  <input value={cropType} onChange={(e) => setCropType(e.target.value)} placeholder="e.g. Wheat" className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                ) : (
+                  <p className="text-sm font-semibold text-slate-900">{(user as any).crop_type || "—"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Age</label>
+                {editing ? (
+                  <input type="number" min="0" max="120" value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 35" className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                ) : (
+                  <p className="text-sm font-semibold text-slate-900">{(user as any).age ?? "—"}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Income tax payer?</label>
+                {editing ? (
+                  <select value={incomeTaxPayer ? "yes" : "no"} onChange={(e) => setIncomeTaxPayer(e.target.value === "yes")} className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                ) : (
+                  <p className="text-sm font-semibold text-slate-900">{(user as any).is_income_tax_payer ? "Yes" : "No"}</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Documents status</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {([
+                  ["Aadhaar linked", aadhaarLinked, setAadhaarLinked],
+                  ["Bank account added", bankLinked, setBankLinked],
+                  ["Land records uploaded", landRecords, setLandRecords],
+                ] as [string, boolean, React.Dispatch<React.SetStateAction<boolean>>][]).map(([label, val, set]) => (
+                  <label key={label} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${val ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
+                    <input type="checkbox" checked={val} disabled={!editing} onChange={(e) => set(e.target.checked)} className="accent-emerald-600 w-3.5 h-3.5" />
+                    {label}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
         </div>

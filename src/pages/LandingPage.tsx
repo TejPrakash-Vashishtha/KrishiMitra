@@ -91,7 +91,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-dvh-fill bg-slate-50">
       <div className="relative overflow-hidden text-white pt-0 pb-16 px-4">
 
         {/* SVG filter that makes the photo's crops sway (turbulence -> displacement) */}
@@ -143,35 +143,45 @@ export default function LandingPage() {
         />
 
         <div className="relative z-10 max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            <div className="lg:col-span-7 space-y-4">
-            <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
-              {t("heroTitle1")} <span className="text-emerald-300">{t("heroTitle2")}</span>
-            </h1>
-
-            <p className="text-base sm:text-lg text-emerald-100 max-w-2xl">
-              {t("heroSubtitle")}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-3.5">
-              <button
-                onClick={() => setCameraOpen(true)}
-                className="flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold text-base shadow-lg shadow-emerald-900/40 transition-all cursor-pointer"
-              >
-                <Camera className="w-5 h-5" />
-                <span>{t("openCamera") || "Open Camera"}</span>
-              </button>
-
-              <Link
-                to="/assistant"
-                className="flex items-center gap-2 px-5 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-base transition-colors"
-              >
-                <span>{t("aiAssistant")}</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+          {/* Top Liquid Glass Status Pill */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="inline-flex items-center gap-2 max-w-full px-3.5 py-1.5 rounded-full liquid-glass-pill text-xs font-semibold text-emerald-200">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
+              <span className="truncate">Smart Indian Agriculture OS · Kharif & Rabi Sync</span>
             </div>
+          </div>
 
-            <MandiPricesBar />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-7 space-y-5">
+              <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight drop-shadow-md">
+                {t("heroTitle1")} <span className="bg-gradient-to-r from-emerald-300 via-teal-200 to-amber-200 bg-clip-text text-transparent">{t("heroTitle2")}</span>
+              </h1>
+
+              <p className="text-base sm:text-lg text-emerald-50/90 max-w-2xl leading-relaxed drop-shadow-xs">
+                {t("heroSubtitle")}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-3.5 pt-1">
+                <button
+                  onClick={() => setCameraOpen(true)}
+                  className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 hover:from-emerald-300 hover:to-green-500 active:scale-95 text-slate-950 font-bold text-base shadow-xl shadow-emerald-950/40 transition-all duration-150 cursor-pointer border border-emerald-300/60"
+                >
+                  <Camera className="w-5 h-5 text-slate-950" />
+                  <span>{t("openCamera") || "Diagnose Crop"}</span>
+                </button>
+
+                <Link
+                  to="/assistant"
+                  className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl liquid-glass hover:bg-white/20 active:scale-95 text-white font-semibold text-base transition-all duration-150 shadow-md"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                  <span>{t("aiAssistant")}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+
+              {/* Mandi Prices Bar rendered in liquid glass */}
+              <MandiPricesBar />
             </div>
 
             <div className="lg:col-span-5">
@@ -181,26 +191,40 @@ export default function LandingPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      {/* Extended Liquid Glass Feature Grid */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 -mt-6">
+        <div className="text-center max-w-2xl mx-auto mb-10">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 border border-emerald-300/60 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Comprehensive Agri Ecosystem</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Integrated Intelligent Farming Tools
+          </h2>
+          <p className="text-sm sm:text-base text-slate-600 mt-2">
+            Every module is tailored for Indian cultivators, mandi traders, and agro-service dealers.
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {features.map((f, i) => (
             <Link
               key={i}
               to={f.path}
-              className="group bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all flex flex-col justify-between"
+              className="group liquid-glass-card rounded-2xl p-6 flex flex-col justify-between cursor-pointer"
             >
               <div>
-                <div className={`w-12 h-12 rounded-xl ${f.color} text-white flex items-center justify-center mb-4 shadow-md`}>
+                <div className={`w-12 h-12 rounded-xl ${f.color} text-white flex items-center justify-center mb-4 shadow-md group-hover:scale-105 transition-transform duration-200`}>
                   <f.icon className="w-6 h-6" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 group-hover:text-emerald-700 transition-colors mb-2">
                   {f.title}
                 </h3>
-                <p className="text-sm text-slate-600">{f.desc}</p>
+                <p className="text-sm text-slate-600 leading-relaxed">{f.desc}</p>
               </div>
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 mt-4">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 mt-5 pt-3 border-t border-slate-200/50">
                 <span>{t("explore")}</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform" />
               </div>
             </Link>
           ))}

@@ -26,9 +26,18 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div>
         <div className="relative w-full h-44 rounded-xl overflow-hidden bg-slate-100 mb-3 flex items-center justify-center">
           <img
-            src={product.imageUrl || "https://images.unsplash.com/photo-1592417817098-8f3d6eb22a57?w=500&q=80"}
+            src={product.imageUrl || "https://images.unsplash.com/photo-1589923188900-85dae523342b?w=500&q=80"}
             alt={product.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+            onError={(e) => {
+              const img = e.currentTarget;
+              if (!img.dataset.fb) {
+                img.dataset.fb = "1";
+                img.src = "https://images.unsplash.com/photo-1589923188900-85dae523342b?w=500&q=80";
+              } else {
+                img.style.visibility = "hidden";
+              }
+            }}
           />
           <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white uppercase">
             {product.category}

@@ -4,48 +4,8 @@ import { TrendingUp, TrendingDown, MapPin, ArrowRight, BarChart3 } from "lucide-
 import { useLocation } from "../contexts/LocationContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { saveMandiSnapshot, fetchMandiHistory, todayStr } from "../lib/supabaseData";
+import { MANDI_LOCATIONS } from "../lib/mandiData";
 
-// --- Mandi data (same database as MandiPricePage) ---
-// Shared with the merchant NearestMandiWidget so both worlds read identical data.
-export const MANDI_LOCATIONS: { city: string; state: string; district: string; mandis: string[] }[] = [
-  { city: "Delhi", state: "Delhi", district: "North Delhi", mandis: ["Azadpur Mandi", "Ghazipur Mandi"] },
-  { city: "Delhi", state: "Delhi", district: "East Delhi", mandis: ["Ghazipur Mandi", "Kondli Mandi"] },
-  { city: "Mumbai", state: "Maharashtra", district: "Navi Mumbai", mandis: ["Vashi APMC", "Kharghar Mandi"] },
-  { city: "Pune", state: "Maharashtra", district: "Pune", mandis: ["Pune APMC", "Hadapsar Mandi"] },
-  { city: "Nashik", state: "Maharashtra", district: "Nashik", mandis: ["Nashik APMC", "Pimpalgaon Mandi"] },
-  { city: "Nagpur", state: "Maharashtra", district: "Nagpur", mandis: ["Nagpur APMC", "Sitabuldi Mandi"] },
-  { city: "Bengaluru", state: "Karnataka", district: "Bengaluru", mandis: ["BMIC Market", "Yeshwanthpur APMC"] },
-  { city: "Mysuru", state: "Karnataka", district: "Mysuru", mandis: ["Mysuru APMC"] },
-  { city: "Chennai", state: "Tamil Nadu", district: "Chennai", mandis: ["Koyambedu Market", "Tondiarpet Mandi"] },
-  { city: "Coimbatore", state: "Tamil Nadu", district: "Coimbatore", mandis: ["Coimbatore APMC"] },
-  { city: "Lucknow", state: "Uttar Pradesh", district: "Lucknow", mandis: ["Ghazipur Mandi Lucknow", "Aminabad Mandi"] },
-  { city: "Agra", state: "Uttar Pradesh", district: "Agra", mandis: ["Agra Mandi", "Sadar Bazaar Mandi"] },
-  { city: "Varanasi", state: "Uttar Pradesh", district: "Varanasi", mandis: ["Varanasi Mandi", "Bhadohi Mandi"] },
-  { city: "Kanpur", state: "Uttar Pradesh", district: "Kanpur", mandis: ["Kanpur Mandi", "Jajmau Mandi"] },
-  { city: "Meerut", state: "Uttar Pradesh", district: "Meerut", mandis: ["Meerut Mandi"] },
-  { city: "Ludhiana", state: "Punjab", district: "Ludhiana", mandis: ["Ludhiana Mandi", "Khanna Mandi"] },
-  { city: "Amritsar", state: "Punjab", district: "Amritsar", mandis: ["Amritsar Mandi"] },
-  { city: "Jaipur", state: "Rajasthan", district: "Jaipur", mandis: ["Jaipur APMC", "Sanganer Mandi"] },
-  { city: "Jodhpur", state: "Rajasthan", district: "Jodhpur", mandis: ["Jodhpur APMC"] },
-  { city: "Ahmedabad", state: "Gujarat", district: "Ahmedabad", mandis: ["Ahmedabad APMC", "Naroda Mandi"] },
-  { city: "Surat", state: "Gujarat", district: "Surat", mandis: ["Surat APMC"] },
-  { city: "Bhopal", state: "Madhya Pradesh", district: "Bhopal", mandis: ["Bhopal APMC"] },
-  { city: "Indore", state: "Madhya Pradesh", district: "Indore", mandis: ["Indore APMC", "Pithampur Mandi"] },
-  { city: "Kolkata", state: "West Bengal", district: "Kolkata", mandis: ["Sealdah Mandi", "Howrah Mandi"] },
-  { city: "Patna", state: "Bihar", district: "Patna", mandis: ["Patna APMC", "Bailey Road Mandi"] },
-  { city: "Bhubaneswar", state: "Odisha", district: "Khordha", mandis: ["Bhubaneswar APMC"] },
-  { city: "Cuttack", state: "Odisha", district: "Cuttack", mandis: ["Cuttack APMC", "Mandapada Mandi"] },
-  { city: "Hyderabad", state: "Telangana", district: "Hyderabad", mandis: ["Malkajgiri APMC", "Malakpet Mandi"] },
-  { city: "Vijayawada", state: "Andhra Pradesh", district: "Krishna", mandis: ["Vijayawada APMC"] },
-  { city: "Guwahati", state: "Assam", district: "Kamrup", mandis: ["Fancy Bazar Mandi", "Paltan Bazar Mandi"] },
-  { city: "Ranchi", state: "Jharkhand", district: "Ranchi", mandis: ["Ranchi APMC"] },
-  { city: "Raipur", state: "Chhattisgarh", district: "Raipur", mandis: ["Raipur APMC"] },
-  { city: "Faridabad", state: "Haryana", district: "Faridabad", mandis: ["Faridabad Mandi"] },
-  { city: "Karnal", state: "Haryana", district: "Karnal", mandis: ["Karnal Mandi"] },
-  { city: "Dehradun", state: "Uttarakhand", district: "Dehradun", mandis: ["Dehradun Mandi"] },
-  { city: "Shimla", state: "Himachal Pradesh", district: "Shimla", mandis: ["Shimla Mandi"] },
-  { city: "Srinagar", state: "Jammu & Kashmir", district: "Srinagar", mandis: ["Srinagar Mandi"] },
-];
 
 export const TOP_CROPS = ["Wheat", "Paddy", "Tomato", "Mustard", "Potato"];
 
@@ -191,31 +151,31 @@ export default function MandiPricesBar() {
 
   return (
     <div className="mt-4 relative z-10 space-y-2">
-      {/* Two mandi price cards — always visible */}
+      {/* Two mandi price cards — always visible with liquid-glass aesthetics */}
       {mandiData.map((m, i) => (
         <div
           key={i}
-          className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl px-3.5 py-2.5 flex items-center justify-between"
+          className="liquid-glass rounded-xl px-4 py-3 flex items-center justify-between transition-transform duration-150 hover:translate-x-0.5"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-1.5 rounded-lg bg-emerald-500/30 text-emerald-300 flex-shrink-0">
-              <BarChart3 className="w-3.5 h-3.5" />
+            <div className="p-2 rounded-lg bg-emerald-500/25 border border-emerald-400/30 text-emerald-300 flex-shrink-0 shadow-xs">
+              <BarChart3 className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-bold text-white truncate">
-                <MapPin className="w-2.5 h-2.5 inline mr-0.5" />
-                {m.mandi}
+              <p className="text-xs font-bold text-white tracking-tight truncate flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-emerald-300 inline shrink-0" />
+                <span>{m.mandi}</span>
               </p>
-              <p className="text-[10px] text-emerald-200">
-                {m.crop} ₹{m.price.toLocaleString()}/q
+              <p className="text-[11px] font-medium text-emerald-200/90 mt-0.5">
+                {m.crop} <span className="text-white font-bold">₹{m.price.toLocaleString()}</span>/quintal
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2.5 flex-shrink-0">
             <MiniSparkline data={m.history} positive={m.change >= 0} />
             <div className="text-right">
-              <p className={`text-[10px] font-bold flex items-center gap-0.5 justify-end ${m.change >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
-                {m.change >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              <p className={`text-xs font-extrabold flex items-center gap-0.5 justify-end ${m.change >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                {m.change >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                 {m.change >= 0 ? "+" : ""}{m.changePercent}%
               </p>
             </div>
@@ -223,13 +183,13 @@ export default function MandiPricesBar() {
         </div>
       ))}
 
-      {/* More button — always opens login page */}
+      {/* More button — liquid glass button */}
       <button
         onClick={handleMore}
-        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-emerald-200 text-[11px] font-bold transition-colors cursor-pointer"
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl liquid-glass hover:bg-emerald-600/30 active:scale-[0.98] border border-emerald-400/40 text-emerald-200 hover:text-white text-xs font-bold transition-all duration-150 cursor-pointer shadow-sm"
       >
-        {t("morePrices") || "More"}
-        <ArrowRight className="w-3 h-3" />
+        <span>{t("morePrices") || "View All Mandi Prices & Trends"}</span>
+        <ArrowRight className="w-3.5 h-3.5" />
       </button>
     </div>
   );

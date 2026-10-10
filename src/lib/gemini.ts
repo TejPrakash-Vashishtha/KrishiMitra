@@ -4,7 +4,9 @@
 // =====================================================
 import { CROP_KNOWLEDGE, AGRI_DEALERS } from "./agriKnowledge";
 import { retrieveKb, formatKbContext } from "./kbRetrieval";
+import { fetchWithTimeout, withTimeout } from "./net";
 import { GEMINI_API_KEY } from "./geminiKey";
+import { findFarmingAnswer } from "../utils/farmingKnowledge";
 const GEMINI_MODEL = "gemini-flash-lite-latest";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
@@ -65,7 +67,9 @@ export async function askGemini(
   // RAG: ground the answer in the KrishiMitra datasets (best-effort)
   let kbContext = "";
   try {
-    kbContext = formatKbContext(await retrieveKb(message));
+    // Grounding is best-effort: bound it so a stuck RAG call can never
+    // delay (or hang) the farmer's answer.
+    kbContext = formatKbContext(await withTimeout(retrieveKb(message), 6000));
   } catch {
     kbContext = "";
   }
@@ -91,45 +95,87 @@ export async function askGemini(
     });
   }
 
-  try {
-    const response = await fetch(GEMINI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 1024,
+  const requestBody = JSON.stringify({
+    contents: [{ parts }],
+    generationConfig: {
+      temperature: 0.7,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 1024,
+    },
+  });
+
+  // Retry transient failures (429 rate limits, 5xx outages, network blips) with
+  // backoff before giving up — the free-tier key is shared, so 429s are common.
+  let lastReason = "network_error";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 1200));
+
+      const response = await fetchWithTimeout(
+        GEMINI_URL,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
         },
-      }),
-    });
+        30000
+      );
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      if (errorData?.error?.code === 429) {
-        return getFallbackMessage(language, "rate_limit");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const code = response.status === 429 || errorData?.error?.code === 429 ? "rate_limit" : "api_error";
+        lastReason = code;
+        // Retry rate limits and server errors; a 4xx like an invalid key won't improve.
+        if (response.status === 429 || response.status >= 500) continue;
+        break;
       }
-      throw new Error(`Gemini API error: ${response.status}`);
+
+      const data: GeminiResponse = await response.json();
+      if (data.error) {
+        lastReason = "api_error";
+        break;
+      }
+
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!reply) {
+        lastReason = "no_response";
+        break;
+      }
+
+      return reply;
+    } catch (err) {
+      console.error("[AgriNexus Gemini]", err);
+      lastReason = "network_error";
     }
-
-    const data: GeminiResponse = await response.json();
-
-    if (data.error) {
-      return getFallbackMessage(language, "api_error");
-    }
-
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!reply) {
-      return getFallbackMessage(language, "no_response");
-    }
-
-    return reply;
-  } catch (err) {
-    console.error("[AgriNexus Gemini]", err);
-    return getFallbackMessage(language, "network_error");
   }
+
+  // The AI service is unavailable (quota, outage, or no network). For a text
+  // question, keep the assistant useful by answering from the built-in offline
+  // farming knowledge base instead of dead-ending on an error. For an image, we
+  // must not fabricate a diagnosis, so surface the honest fallback message.
+  if (!imageBase64) {
+    return offlineFarmingAnswer(message, language, lastReason);
+  }
+  return getFallbackMessage(language, lastReason);
+}
+
+/**
+ * Last-resort answer for the chat assistant when Gemini cannot be reached.
+ * Grounded in the local, curated farming knowledge base (no fabrication).
+ */
+function offlineFarmingAnswer(message: string, language: string, reason: string): string {
+  const local = findFarmingAnswer(message);
+  const note =
+    language === "en"
+      ? "_Answered from KrishiMitra's offline knowledge base (AI service is busy right now). Try again in a minute for a live AI answer._\n\n"
+      : "";
+  // If the local base had no specific match, fall back to the localized error
+  // message rather than a generic topic list in the wrong context.
+  if (local.includes("I'm KrishiMitra AI, your farming assistant")) {
+    return getFallbackMessage(language, reason);
+  }
+  return note + local;
 }
 
 /**
@@ -180,6 +226,82 @@ export async function loadConversationHistory(
   } catch {
     return [];
   }
+}
+
+// ============================================================
+// AI PRICE SUGGESTION — Feature A (Process Your Produce)
+// Suggests a fair retail price for a farmer's processed product,
+// grounded in the raw crop's mandi/farm-gate rate. Never throws:
+// the caller falls back to the offline multiplier table.
+// ============================================================
+
+export interface PriceSuggestion {
+  minPrice: number;
+  maxPrice: number;
+  reasoning: string;
+  source: "ai" | "fallback";
+}
+
+export async function suggestProductPrice(
+  productName: string,
+  rawCropName: string,
+  rawPricePerKg: number
+): Promise<PriceSuggestion | null> {
+  const prompt =
+    `You are an Indian agricultural market pricing expert. A farmer sells raw ${rawCropName} at about ₹${rawPricePerKg} per kg (farm-gate/mandi rate). ` +
+    `He wants to sell a home-made processed product called "${productName}" directly to customers. ` +
+    `Reply with ONLY a compact JSON object, no markdown, in this exact shape: ` +
+    `{"minPrice": <number rupees per kg/pack>, "maxPrice": <number>, "reasoning": "<one short sentence in simple English explaining the typical retail multiplier vs raw crop>"}. ` +
+    `Use realistic Indian retail rates for that processed product.`;
+
+  try {
+    const reply = await askGeminiRaw(prompt);
+    const match = reply.match(/\{[\s\S]*\}/);
+    if (match) {
+      const parsed = JSON.parse(match[0]) as {
+        minPrice?: number;
+        maxPrice?: number;
+        reasoning?: string;
+      };
+      const min = Math.round(Number(parsed.minPrice) || 0);
+      const max = Math.round(Number(parsed.maxPrice) || 0);
+      if (min > 0 && max >= min) {
+        return {
+          minPrice: min,
+          maxPrice: max,
+          reasoning: parsed.reasoning || `Typical retail rate for ${productName}.`,
+          source: "ai",
+        };
+      }
+    }
+  } catch {
+    // fall through to offline fallback
+  }
+  return null; // caller applies the offline multiplier fallback
+}
+
+/** Low-level single-shot Gemini text call (no RAG, no image). */
+async function askGeminiRaw(prompt: string): Promise<string> {
+  const response = await fetchWithTimeout(
+    GEMINI_URL,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 200,
+        },
+      }),
+    },
+    30000
+  );
+  if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
+  const data: GeminiResponse = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Empty Gemini response");
+  return text;
 }
 
 // ============================================================
@@ -326,24 +448,28 @@ export async function diagnoseCropImage(
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 1500));
-      const response = await fetch(GEMINI_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: mimeType, data: base64 } },
-              ],
+      const response = await fetchWithTimeout(
+        GEMINI_URL,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: prompt },
+                  { inline_data: { mime_type: mimeType, data: base64 } },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 2048,
             },
-          ],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 2048,
-          },
-        }),
-      });
+          }),
+        },
+        60000
+      );
 
       if (!response.ok) {
         // 4xx = bad request (e.g. image rejected) — don't retry
@@ -598,24 +724,28 @@ export async function diagnoseSoilImage(
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 1500));
-      const response = await fetch(GEMINI_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: mimeType, data: base64 } },
-              ],
+      const response = await fetchWithTimeout(
+        GEMINI_URL,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: prompt },
+                  { inline_data: { mime_type: mimeType, data: base64 } },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 2048,
             },
-          ],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 2048,
-          },
-        }),
-      });
+          }),
+        },
+        60000
+      );
 
       if (!response.ok) {
         throw new Error(`Gemini API error: ${response.status}`);

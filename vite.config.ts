@@ -9,9 +9,24 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Split heavy vendor libraries into their own cached chunks so app code
+    // updates don't invalidate the whole bundle (faster repeat loads).
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-supabase": ["@supabase/supabase-js"],
+          "vendor-leaflet": ["leaflet"],
+          "vendor-socket": ["socket.io-client"],
+        },
+      },
+    },
+  },
   server: {
     host: "0.0.0.0",
-    port: parseInt(process.env.PORT || "5173"),
+    port: parseInt(process.env.PORT || "3000"),
+    allowedHosts: true,
     proxy: {
       "/api": {
         target: "http://localhost:5000",

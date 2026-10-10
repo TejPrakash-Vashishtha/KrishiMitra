@@ -2,7 +2,43 @@ import React, { useState, useEffect, useRef } from "react";
 import { Satellite, Trash2, Check, Sparkles } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import api from "../services/api";
+import { saveTwinField } from "../lib/digitalTwinData";
+
+// Pure client-side geometry — replaces the old /api/gis/calculate-field call,
+// which 405s on the static deploy. Same spherical math the backend used.
+function computeFieldGeometry(pts: { lat: number; lng: number }[]) {
+  if (pts.length < 3) {
+    return { acres: 0, hectares: 0, guntha: 0, perimeterMeters: 0, centroid: null as null | { lat: number; lng: number } };
+  }
+  const R = 6371000;
+  let area = 0;
+  let perimeter = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p1 = pts[i];
+    const p2 = pts[(i + 1) % pts.length];
+    const lat1 = (p1.lat * Math.PI) / 180;
+    const lat2 = (p2.lat * Math.PI) / 180;
+    const dLng = ((p2.lng - p1.lng) * Math.PI) / 180;
+    area += dLng * (2 + Math.sin(lat1) + Math.sin(lat2));
+    // great-circle distance for perimeter
+    const dLat = (p2.lat - p1.lat) * (Math.PI / 180);
+    const dLon = (p2.lng - p1.lng) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+    perimeter += 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+  }
+  area = Math.abs((area * R * R) / 2);
+  const acres = Math.round((area / 4046.86) * 100) / 100;
+  return {
+    acres,
+    hectares: Math.round((area / 10000) * 100) / 100,
+    guntha: Math.round(acres * 40 * 10) / 10,
+    perimeterMeters: Math.round(perimeter),
+    centroid: {
+      lat: Number((pts.reduce((s, p) => s + p.lat, 0) / pts.length).toFixed(5)),
+      lng: Number((pts.reduce((s, p) => s + p.lng, 0) / pts.length).toFixed(5)),
+    },
+  };
+}
 
 export default function FieldMappingPage() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -18,19 +54,7 @@ export default function FieldMappingPage() {
   ]);
 
   const [activeOverlay, setActiveOverlay] = useState<"TRUE_COLOR" | "NDVI" | "MOISTURE" | "DISEASE">("NDVI");
-  const [metrics, setMetrics] = useState<any>({
-    acres: 3.42,
-    hectares: 1.38,
-    guntha: 136.8,
-    perimeterMeters: 840,
-    centroid: { lat: 20.4631, lng: 85.8835 },
-    spectralIndices: {
-      meanNdvi: 0.78,
-      soilMoisture10cmPercent: 36.5,
-      vegetationUniformityPercent: 91.2,
-      diseaseRiskZoneCount: 1,
-    },
-  });
+  const [metrics, setMetrics] = useState<any>({ acres: 0, hectares: 0, guntha: 0, perimeterMeters: 0, centroid: null });
   const [fieldName, setFieldName] = useState("Mahanadi Alluvial Plot #A");
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -99,13 +123,8 @@ export default function FieldMappingPage() {
         markersRef.current.push(marker);
       });
 
-      api.post("/gis/calculate-field", { coordinates: points })
-        .then((res) => {
-          if (res.data.success) {
-            setMetrics(res.data);
-          }
-        })
-        .catch(() => {});
+      // Client-side geometry (no backend needed — static deploy safe)
+      setMetrics(computeFieldGeometry(points));
     }
   }, [points, activeOverlay]);
 
@@ -123,20 +142,20 @@ export default function FieldMappingPage() {
     ]);
   };
 
-  const savePlotToDigitalTwin = async () => {
-    try {
-      const res = await api.post("/gis/save-field", {
-        fieldName,
-        coordinates: points,
-        farmerId: "farmer-demo-1",
-      });
-      if (res.data.success) {
-        setSavedSuccess(true);
-        setTimeout(() => setSavedSuccess(false), 3500);
-      }
-    } catch (err) {
-      console.error("Failed to save field:", err);
-    }
+  const savePlotToDigitalTwin = () => {
+    // Persist locally with REAL computed geometry — no network, no backend dependency
+    const geom = computeFieldGeometry(points);
+    if (geom.acres <= 0 || !geom.centroid) return;
+    saveTwinField({
+      name: fieldName || "My Farm Plot",
+      areaAcres: geom.acres,
+      centroid: geom.centroid,
+      coordinates: points,
+      savedAt: new Date().toISOString(),
+    });
+    setMetrics(geom);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 3500);
   };
 
   return (

@@ -1,0 +1,32 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Themed-icon (monochrome) wheat ear: same geometry as the launcher
+         foreground, single color so Android tints it per wallpaper theme. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M53.2,17.5 L53.2,13.6 M54.8,17.5 L54.8,13.6" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,84.5 L54,64.2" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,80.7 Q45,75.5 44.5,74.4 M54,80.7 Q63,75.5 63.5,74.4" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50.9,60.4 Q47.7,58.4 48.3,52.5 A2.9,3.0 0 0 1 54.1,52.1 A2.9,3.0 0 0 1 53.6,60.6 Q52.2,61.6 50.9,60.4 Z M57.1,60.4 Q60.3,58.4 59.7,52.5 A2.9,3.0 0 0 0 53.9,52.1 A2.9,3.0 0 0 0 54.4,60.6 Q55.8,61.6 57.1,60.4 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50.7,47.6 Q47.5,45.6 48.1,39.7 A2.9,3.1 0 0 1 53.9,39.3 A2.9,3.1 0 0 1 53.4,47.9 Q52.1,48.9 50.7,47.6 Z M57.3,47.6 Q60.5,45.6 59.9,39.7 A2.9,3.1 0 0 0 54.1,39.3 A2.9,3.1 0 0 0 54.6,47.9 Q55.9,48.9 57.3,47.6 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50.6,34.7 Q47.4,32.7 48,26.8 A3.0,3.2 0 0 1 53.8,26.4 A3.0,3.2 0 0 1 53.3,35 Q52,36 50.6,34.7 Z M57.4,34.7 Q60.6,32.7 60,26.8 A3.0,3.2 0 0 0 54.2,26.4 A3.0,3.2 0 0 0 54.7,35 Q56,36 57.4,34.7 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50.8,21.9 Q47.6,19.9 48.2,14 A2.9,3.1 0 0 1 54,13.6 A2.9,3.1 0 0 1 53.5,22.2 Q52.1,23.2 50.8,21.9 Z M57.2,21.9 Q60.4,19.9 59.8,14 A2.9,3.1 0 0 0 54,13.6 A2.9,3.1 0 0 0 54.5,22.2 Q55.9,23.2 57.2,21.9 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52.5,73.2 Q49.3,71.2 49.9,65.3 A2.9,3.0 0 0 1 55.7,64.9 A2.9,3.0 0 0 1 55.2,73.4 Q53.8,74.4 52.5,73.2 Z M55.5,73.2 Q58.7,71.2 58.1,65.3 A2.9,3.0 0 0 0 52.3,64.9 A2.9,3.0 0 0 0 52.8,73.4 Q54.2,74.4 55.5,73.2 Z" />
+</vector>

@@ -30,18 +30,16 @@ export default function LanguageOnboardingModal({
   onSelect,
 }: LanguageOnboardingModalProps) {
   const { language, setLanguage } = useLanguage();
-  const [pending, setPending] = useState<LanguageCode | null>(null);
+  const [pending, setPending] = useState<LanguageCode>(() => language || "en");
 
   if (!open) return null;
 
   const handleContinue = () => {
-    if (!pending) return;
     setLanguage(pending);
-    setPending(null);
     onSelect();
   };
 
-  const selected = pending ?? language;
+  const selected = pending;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
@@ -77,14 +75,14 @@ export default function LanguageOnboardingModal({
                 <button
                   key={lang.code}
                   onClick={() => setPending(lang.code)}
-                  className={`relative flex flex-col items-center justify-center py-3.5 px-2 rounded-xl border-2 transition-all cursor-pointer ${
+                  className={`relative flex flex-col items-center justify-center py-3.5 px-2 rounded-xl border-2 transition-all duration-150 active:scale-95 cursor-pointer ${
                     isSelected
-                      ? "border-emerald-500 bg-emerald-50 shadow-sm shadow-emerald-100"
+                      ? "border-emerald-500 bg-emerald-50 shadow-sm shadow-emerald-100 scale-[1.02]"
                       : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/40"
                   }`}
                 >
                   {isSelected && (
-                    <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center animate-scale-in">
                       <Check className="w-3 h-3 text-white" strokeWidth={3} />
                     </span>
                   )}
@@ -110,14 +108,9 @@ export default function LanguageOnboardingModal({
           {/* Confirm */}
           <button
             onClick={handleContinue}
-            disabled={!pending}
-            className={`w-full mt-4 py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
-              pending
-                ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200"
-                : "bg-slate-100 text-slate-400 cursor-not-allowed"
-            }`}
+            className="w-full mt-4 py-3 rounded-xl font-semibold text-sm transition-all duration-150 active:scale-95 cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-1.5"
           >
-            Continue
+            <span>Continue</span>
           </button>
 
           <p className="text-center text-xs text-slate-400 mt-3">

@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { MessageCircle, Send, User } from "lucide-react";
+import { Loader2, MessageCircle, Send, Sparkles, User } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { useLanguage } from "../contexts/LanguageContext";
 import { useSocket } from "../contexts/SocketContext";
 import VoiceButton from "../components/voice/VoiceButton";
+import { askGemini } from "../lib/gemini";
+import { AI_BOT_ID, appendMessage, ensureConversations, loadMessages } from "../lib/localChat";
 import api from "../services/api";
 
 export default function ChatPage() {
   const { user } = useAuth();
-  const { socket } = useSocket();
+  const { language } = useLanguage();
+  const { socket, connected } = useSocket();
   const [searchParams] = useSearchParams();
   const withUserId = searchParams.get("with");
 
@@ -17,43 +21,77 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
+  const [botTyping, setBotTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const activeConvRef = useRef<any | null>(null);
 
   useEffect(() => {
-    api.get("/chat/conversations").then((res) => {
-      if (res.data.success) {
-        setConversations(res.data.conversations || []);
-        if (res.data.conversations?.length > 0 && !activeConv) {
-          setActiveConv(res.data.conversations[0]);
-        }
-      }
-    }).finally(() => setLoading(false));
+    activeConvRef.current = activeConv;
+  }, [activeConv]);
+
+  // Load conversations: the backend (when one is deployed) first, then the
+  // on-device store — which always contains the KrishiMitra AI assistant —
+  // so the page is never a dead end with an empty list.
+  useEffect(() => {
+    let alive = true;
+    api
+      .get("/chat/conversations")
+      .catch(() => ({ data: { success: false, conversations: [] } }))
+      .then((res: any) => {
+        if (!alive) return;
+        const remote = res?.data?.conversations || [];
+        const local = ensureConversations(user?.id || "local-user", user?.name || "You");
+        const merged = [
+          ...local.filter((l: any) => !remote.some((r: any) => r.id === l.id)),
+          ...remote,
+        ];
+        setConversations(merged);
+        if (merged.length) setActiveConv((prev) => prev || merged[0]);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => {
     if (withUserId) {
-      api.post("/chat/conversations", { recipientId: withUserId }).then((res) => {
-        if (res.data.success) {
-          setActiveConv(res.data.conversation);
-          setConversations((prev) => {
-            const exists = prev.some((c) => c.id === res.data.conversation.id);
-            return exists ? prev : [res.data.conversation, ...prev];
-          });
-        }
-      });
+      api
+        .post("/chat/conversations", { recipientId: withUserId })
+        .then((res) => {
+          if (res.data.success && res.data.conversation) {
+            setActiveConv(res.data.conversation);
+            setConversations((prev) => {
+              const exists = prev.some((c) => c.id === res.data.conversation.id);
+              return exists ? prev : [res.data.conversation, ...prev];
+            });
+          }
+        })
+        .catch(() => {});
     }
   }, [withUserId]);
 
   useEffect(() => {
-    if (activeConv) {
-      api.get(`/chat/conversations/${activeConv.id}/messages`).then((res) => {
-        if (res.data.success) setMessages(res.data.messages || []);
+    if (!activeConv) return;
+    let alive = true;
+    api
+      .get(`/chat/conversations/${activeConv.id}/messages`)
+      .catch(() => ({ data: { success: false, messages: [] } }))
+      .then((res: any) => {
+        if (!alive) return;
+        const remote = res?.data?.messages || [];
+        // Backend threads win; otherwise fall back to what this device stored.
+        setMessages(remote.length ? remote : loadMessages(activeConv.id));
       });
-      if (socket) {
-        socket.emit("join_room", activeConv.id);
-      }
+    if (socket && connected) {
+      socket.emit("join_room", activeConv.id);
     }
-  }, [activeConv, socket]);
+    return () => {
+      alive = false;
+    };
+  }, [activeConv, socket, connected]);
 
   useEffect(() => {
     if (!socket) return;
@@ -75,16 +113,55 @@ export default function ChatPage() {
     if (!input.trim() || !activeConv) return;
     const text = input.trim();
     setInput("");
-    if (socket) {
-      socket.emit("send_message", {
-        conversationId: activeConv.id,
-        senderId: user?.id,
-        content: text,
-      });
-    } else {
-      await api.post(`/chat/conversations/${activeConv.id}/messages`, { content: text });
-      setMessages((prev) => [...prev, { id: Date.now().toString(), senderId: user?.id, content: text, createdAt: new Date().toISOString() }]);
+    const convId: string = activeConv.id;
+
+    // Live peer chat: only when a backend is actually connected, since it
+    // echoes the message back over the socket.
+    if (socket && connected && !activeConv.isBot) {
+      socket.emit("send_message", { conversationId: convId, senderId: user?.id, content: text });
+      return;
     }
+
+    // Offline path: show the message immediately and keep it on this device.
+    const localMsg = {
+      id: `local-${Date.now()}`,
+      senderId: user?.id || "local-user",
+      content: text,
+      createdAt: new Date().toISOString(),
+    };
+    appendMessage(convId, localMsg);
+    setMessages((prev) => [...prev, localMsg]);
+
+    // The built-in AI conversation answers straight away, so the Messages
+    // section keeps working with no other user or backend online.
+    if (activeConv.isBot) {
+      setBotTyping(true);
+      try {
+        const reply = await askGemini(text, language);
+        const botMsg = {
+          id: `bot-${Date.now()}`,
+          senderId: AI_BOT_ID,
+          content: reply,
+          createdAt: new Date().toISOString(),
+        };
+        appendMessage(convId, botMsg);
+        if (activeConvRef.current?.id === convId) setMessages((prev) => [...prev, botMsg]);
+      } catch {
+        const botMsg = {
+          id: `bot-${Date.now()}`,
+          senderId: AI_BOT_ID,
+          content: "Sorry, I could not reach the AI service. Please try again in a moment.",
+          createdAt: new Date().toISOString(),
+        };
+        appendMessage(convId, botMsg);
+        if (activeConvRef.current?.id === convId) setMessages((prev) => [...prev, botMsg]);
+      } finally {
+        setBotTyping(false);
+      }
+      return;
+    }
+
+    await api.post(`/chat/conversations/${convId}/messages`, { content: text }).catch(() => {});
   };
 
   return (
@@ -113,15 +190,23 @@ export default function ChatPage() {
                     onClick={() => setActiveConv(c)}
                     className={`w-full p-3.5 text-left flex items-center gap-3 transition-colors ${isActive ? "bg-emerald-50/70" : "hover:bg-slate-50"}`}
                   >
-                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0">
-                      <User className="w-5 h-5" />
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        c.isBot ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {c.isBot ? <Sparkles className="w-5 h-5" /> : <User className="w-5 h-5" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-semibold text-slate-800 truncate">
                         {otherUser?.name || "KrishiMitra User"}
                       </span>
                       <p className="text-xs text-slate-500 truncate">
-                        {otherUser?.role === "DEALER" ? "Verified Dealer" : "Farmer"}
+                        {otherUser?.role === "AI"
+                          ? "AI Assistant"
+                          : otherUser?.role === "DEALER"
+                          ? "Verified Dealer"
+                          : "Farmer"}
                       </p>
                     </div>
                   </button>
@@ -136,13 +221,15 @@ export default function ChatPage() {
             <div className="p-4 py-3 bg-white border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                  <User className="w-4 h-4" />
+                  {activeConv.isBot ? <Sparkles className="w-4 h-4" /> : <User className="w-4 h-4" />}
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">
                     {activeConv.user1?.id === user?.id ? activeConv.user2?.name : activeConv.user1?.name}
                   </h2>
-                  <p className="text-[10px] text-emerald-700 font-medium">Active Session</p>
+                  <p className="text-[10px] text-emerald-700 font-medium">
+                    {activeConv.isBot ? "AI Assistant · replies instantly" : "Active Session"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -165,6 +252,12 @@ export default function ChatPage() {
                   </div>
                 </div>
               ))}
+              {botTyping && (
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                  <span>KrishiMitra AI is typing…</span>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
 

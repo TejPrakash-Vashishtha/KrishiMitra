@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Sprout, Search, LogOut, LayoutDashboard, Users } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 import LanguageSelector from "../common/LanguageSelector";
+import NotificationBell from "../common/NotificationBell";
 
 /**
  * Merchant-only navbar: logo far-left, crop search bar in the center,
@@ -11,6 +13,7 @@ import LanguageSelector from "../common/LanguageSelector";
  */
 export default function MerchantNavbar() {
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
 
@@ -34,13 +37,13 @@ export default function MerchantNavbar() {
             <Sprout className="w-5 h-5" />
           </span>
           <span className="leading-tight">
-            <span className="block text-base font-extrabold text-slate-900 tracking-tight">AgriNexus</span>
+            <span className="block text-base font-extrabold text-slate-900 tracking-tight">{t("brandName")}</span>
             <span className="block text-[9px] font-bold tracking-widest text-violet-600 uppercase">Merchant Hub</span>
           </span>
         </Link>
 
-        {/* Center: crop search bar */}
-        <form onSubmit={handleSearch} className="flex-1 max-w-xl mx-auto">
+        {/* Center: crop search bar (collapses on very small screens) */}
+        <form onSubmit={handleSearch} className="hidden sm:flex flex-1 max-w-xl mx-auto">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -61,20 +64,31 @@ export default function MerchantNavbar() {
 
         {/* Right: links + language + profile */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Compact search icon when the search bar collapses on phones */}
+          <Link
+            to="/merchant/search"
+            title="Search crops"
+            className="sm:hidden p-2 rounded-xl text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
+          >
+            <Search className="w-4 h-4" />
+          </Link>
           <Link
             to="/merchant/dashboard"
-            className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors whitespace-nowrap"
+            title="Dashboard"
+            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors whitespace-nowrap"
           >
             <LayoutDashboard className="w-4 h-4" />
-            Dashboard
+            <span className="hidden md:inline">Dashboard</span>
           </Link>
           <Link
             to="/merchant/contacts"
-            className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors whitespace-nowrap"
+            title="B2B Contacts"
+            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors whitespace-nowrap"
           >
             <Users className="w-4 h-4" />
-            B2B Contacts
+            <span className="hidden md:inline">B2B Contacts</span>
           </Link>
+          <NotificationBell />
           <LanguageSelector />
           {user && (
             <div className="flex items-center gap-2 pl-2 border-l border-slate-200">

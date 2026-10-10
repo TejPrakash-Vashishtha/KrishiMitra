@@ -7,6 +7,115 @@
     @apply antialiased bg-slate-50 text-slate-900;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   }
+
+  /* Android WebView font-boosting guard: the WebView inflates text to match
+     the phone's system font-size setting, breaking the layout inside the
+     app wrapper. text-size-adjust: none pins rendering to the CSS-intended
+     sizes so the app matches the mobile browser exactly. Harmless no-op in
+     desktop browsers and iOS. */
+  html {
+    -webkit-text-size-adjust: none;
+    text-size-adjust: none;
+  }
+
+  /* Authentic Mobile & Desktop App Tap Polish */
+  button,
+  a,
+  [role="button"],
+  input[type="button"],
+  input[type="submit"],
+  .btn-press,
+  .card-press {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Universal tactile spring depression on click / press */
+  button:not(:disabled):active,
+  [role="button"]:not([aria-disabled="true"]):active,
+  .btn-press:active {
+    transform: scale(0.965);
+  }
+
+  /* Smooth spring release back to standard scale */
+  button:not(:disabled),
+  [role="button"],
+  .btn-press {
+    transition: transform 140ms cubic-bezier(0.2, 0.8, 0.4, 1),
+                box-shadow 160ms ease,
+                background-color 160ms ease,
+                color 160ms ease,
+                border-color 160ms ease;
+  }
+}
+
+/* Tactile Micro-Interactions */
+.app-card-press {
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.4, 1), box-shadow 180ms ease;
+}
+.app-card-press:hover {
+  transform: translateY(-2px);
+}
+.app-card-press:active {
+  transform: scale(0.98) translateY(0);
+}
+
+/* Touch Ripple Glow Effect */
+.click-ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: scale(0);
+  animation: ripple-bloom 550ms cubic-bezier(0.1, 0.7, 0.1, 1) forwards;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.35) 0%, rgba(16, 185, 129, 0.1) 60%, rgba(16, 185, 129, 0) 100%);
+  z-index: 50;
+}
+
+.click-ripple-floating {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: floating-ripple 480ms cubic-bezier(0.1, 0.8, 0.25, 1) forwards;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.4) 0%, rgba(16, 185, 129, 0.18) 45%, rgba(16, 185, 129, 0) 75%);
+  z-index: 99999;
+  mix-blend-mode: multiply;
+}
+
+@keyframes floating-ripple {
+  0% {
+    transform: scale(0.2);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+
+@keyframes ripple-bloom {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.8);
+    opacity: 0;
+  }
+}
+
+/* Organic plant pulse for loaders & splash */
+@keyframes seedPulse {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    transform: scale(1.08) rotate(2deg);
+    box-shadow: 0 0 24px 8px rgba(16, 185, 129, 0.25);
+  }
+}
+
+.animate-seed-pulse {
+  animation: seedPulse 2.8s ease-in-out infinite;
 }
 
 /* Blurs the whole app while the language onboarding popup is open.
@@ -38,20 +147,47 @@
   }
 }
 
-/* Liquid-glass panel (landing-page weather widget).
-   Translucent tint + backdrop blur/saturation + glossy edges.
-   The ::before sheen is painted BELOW the widget's absolutely-positioned
-   animation layers, so rain/fog/sun animations stay fully visible. */
+/* --- No-backdrop-filter fallback ---------------------------------------
+   Browsers without backdrop-filter (older Android WebView, some mobile
+   browsers) render .liquid-glass as a nearly invisible dark wash — the
+   "glass not filling the display" look. @supports not gives them a
+   solid-enough frosted equivalent instead. Kept at the end of the glass
+   section so it wins the cascade at equal specificity.
+   ---------------------------------------------------------------------- */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .liquid-glass {
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.06) 40%, rgba(255, 255, 255, 0.12) 100%),
+      rgba(10, 40, 32, 0.94);
+  }
+  .liquid-glass-card {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.97) 0%, rgba(255, 255, 255, 0.9) 100%);
+  }
+  .liquid-glass-hero {
+    background:
+      linear-gradient(140deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 60%, rgba(16, 185, 129, 0.08) 100%),
+      rgba(6, 40, 28, 0.95);
+  }
+}
+
+/* =========================================================================
+   LIQUID GLASS SYSTEM (Apple VisionOS / Fluent Glassmorphism for KrishiMitra)
+   Multi-layered specular reflections, refraction borders, and backdrop blurs
+   ========================================================================= */
+
 .liquid-glass {
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 40%, rgba(255, 255, 255, 0.1) 100%),
-    rgba(10, 40, 32, 0.32);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.05) 40%, rgba(255, 255, 255, 0.12) 100%),
+    rgba(10, 40, 32, 0.38);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+    0 12px 36px -4px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  position: relative;
 }
 .liquid-glass::before {
   content: "";
@@ -59,5 +195,100 @@
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(115deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 30%);
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 35%);
+}
+
+/* Light / Day mode Liquid Glass for cards on light & gradient canvases */
+.liquid-glass-card {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.62) 100%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 10px 25px -3px rgba(16, 185, 129, 0.06),
+    0 4px 12px -2px rgba(0, 0, 0, 0.04),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9);
+  position: relative;
+  overflow: hidden;
+  transition: all 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.liquid-glass-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 100%);
+}
+
+.liquid-glass-card:hover {
+  transform: translateY(-4px);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.75) 100%);
+  border-color: rgba(52, 211, 153, 0.6);
+  box-shadow:
+    0 20px 35px -6px rgba(16, 185, 129, 0.16),
+    0 8px 16px -2px rgba(0, 0, 0, 0.06),
+    inset 0 1.5px 1px rgba(255, 255, 255, 1);
+}
+
+/* Liquid Pill / Badge */
+.liquid-glass-pill {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.08) 100%);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Hero Glass Cockpit Container */
+.liquid-glass-hero {
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.03) 60%, rgba(16, 185, 129, 0.08) 100%),
+    rgba(6, 40, 28, 0.42);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  backdrop-filter: blur(24px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow:
+    0 20px 50px -10px rgba(0, 0, 0, 0.45),
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+/* =========================================================================
+   VIEWPORT FILL HELPERS
+   Mobile browsers size 100vh to the *expanded* viewport (address bar hidden),
+   so a min-h-screen glass surface can be taller than what the user actually
+   sees — the glass then looks like it stops short of the display edge.
+   100dvh tracks the visible viewport, with 100vh kept as the fallback for
+   browsers that don't understand dvh yet.
+   ========================================================================= */
+.min-h-dvh-fill {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Keeps the fixed bottom glass bar clear of the iOS home indicator. */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Reserves room for that fixed bottom bar so the last row of a page is
+   never hidden behind it; reset once the desktop navbar takes over. */
+.pb-mobile-nav {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  .pb-mobile-nav {
+    padding-bottom: 0;
+  }
 }

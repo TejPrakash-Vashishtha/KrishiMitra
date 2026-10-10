@@ -18,9 +18,13 @@ const SUPABASE_URL = "https://ubhavqvejgapzmmpdulb.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InViaGF2cXZlamdhcHptbXBkdWxiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MjQ1NjcsImV4cCI6MjEwNDAwMDU2N30.zKaVMtZsLqWWJ_1KoE5Ve2maUgWTtnjvZk-fo2rhBWU";
 
-// Same Gemini key as src/lib/gemini.ts (kept in sync)
+// Same Gemini key as src/lib/gemini.ts (kept in sync).
+// Override with GEMINI_API_KEY env var (bun auto-loads .env) — useful when
+// the built-in key's daily embedding quota is exhausted and you have a
+// fresh key from a different Google project.
 const _k = [65,81,46,65,98,56,82,78,54,73,116,90,118,113,57,55,110,116,112,115,71,81,98,54,55,85,57,85,122,49,73,121,51,75,117,90,82,116,82,111,72,85,80,65,72,122,45,78,48,118,79,57,65];
-const GEMINI_API_KEY = _k.map((c) => String.fromCharCode(c)).join("");
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || _k.map((c) => String.fromCharCode(c)).join("");
+if (process.env.GEMINI_API_KEY) console.log("  using GEMINI_API_KEY from environment");
 
 const EMBED_MODEL = "gemini-embedding-001";
 const DIMS = 768;

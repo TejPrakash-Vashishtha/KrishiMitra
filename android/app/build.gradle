@@ -1,0 +1,69 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace = "com.krishimitra.app"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.krishimitra.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 2
+        versionName "1.0.1"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        release {
+            // CI/dev machines pass these via -Pandroid.injected.signing.*
+            // (see scripts/build-android-apk.sh). Falls back to the debug
+            // key when absent so `gradlew assembleRelease` never hard-fails.
+            if (project.hasProperty('android.injected.signing.store.file')) {
+                storeFile file(project.property('android.injected.signing.store.file'))
+                storePassword project.property('android.injected.signing.store.password')
+                keyAlias project.property('android.injected.signing.key.alias')
+                keyPassword project.property('android.injected.signing.key.password')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // Sign with the release key when signing props are passed
+            // (-Pandroid.injected.signing.*), else fall back to the debug
+            // key so plain `gradlew assembleRelease` still works locally.
+            signingConfig project.hasProperty('android.injected.signing.store.file') ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+}
+
+repositories {
+    flatDir {
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar', '*.aar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
