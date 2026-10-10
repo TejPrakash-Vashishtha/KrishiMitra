@@ -26,6 +26,7 @@ model User {
   cropPosts         CropPost[]
   sentMessages      Message[]
   notifications     Notification[]
+  fields            Field[]
 }
 
 model FarmerProfile {
@@ -165,4 +166,20 @@ model Notification {
   type      String   @default("INFO")
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+model Field {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  geoJson     String   
+  areaSqm     Float
+  crop        String?
+  sowingDate  String?
+  khasraNo    String?
+  khataNo     String?
+  village     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

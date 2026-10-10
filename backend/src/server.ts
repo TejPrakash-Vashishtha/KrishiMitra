@@ -1,6 +1,8 @@
 import express from "express";
 import http from "http";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import path from "path";
 import { config } from "./config/index.js";
 import routes from "./routes/index.js";
@@ -8,6 +10,19 @@ import { initSocket } from "./services/chat/socket.service.js";
 
 const app = express();
 const server = http.createServer(app);
+
+// Use Helmet for secure HTTP headers
+app.use(helmet());
+
+// Apply global rate limiting to all requests
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes).
+  standardHeaders: 'draft-7', // draft-6: `RateLimit-*` headers; draft-7: combined `RateLimit` header
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers.
+  message: { success: false, message: "Too many requests from this IP, please try again after 15 minutes" }
+});
+app.use(limiter);
 
 // Enable CORS for frontend localhost Vite port 5173
 app.use(cors({

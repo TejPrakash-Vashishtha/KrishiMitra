@@ -97,7 +97,11 @@ api.interceptors.response.use(
       return createMockResponse(config, { success: true, conversations: [], messages: [] });
     }
 
-    // 7. General fallback
+    // 7. General fallback (skip for authentication routes so we get real errors)
+    if (url.includes("/auth")) {
+      return Promise.reject(error);
+    }
+
     if (method === "get") {
       return createMockResponse(config, { success: true, data: [] });
     }

@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Camera, Sprout, Sun, ShoppingBag, Users, ArrowRight, Sparkles, Package, BarChart3, Store, Truck } from "lucide-react";
+import { Camera, Sprout, Sun, ShoppingBag, Users, ArrowRight, Sparkles, Package, BarChart3, Store, Truck, Plane } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 import WeatherWidget from "../components/weather/WeatherWidget";
 import CameraCaptureModal from "../components/camera/CameraCaptureModal";
 import MandiPricesBar from "../components/MandiPricesBar";
 import riceFieldBg from "../assets/rice-field.jpg"; // live wallpaper photo
+import machineryIcon from "../assets/machinery-icon.jpg";
 
 export default function LandingPage() {
   const { t } = useLanguage();
@@ -87,6 +88,22 @@ export default function LandingPage() {
       desc: t("feature10Desc"),
       icon: Sparkles,
       color: "bg-green-600",
+    },
+    {
+      path: "#",
+      title: "Machinery & Vehicle Rental",
+      desc: "Rent tractors and heavy machinery for your farm operations.",
+      image: machineryIcon,
+      color: "bg-yellow-500",
+      comingSoon: true,
+    },
+    {
+      path: "#",
+      title: "Drone Spraying",
+      desc: "Book a drone for quick and efficient pesticide spraying.",
+      icon: Plane,
+      color: "bg-blue-400",
+      comingSoon: true,
     },
   ];
 
@@ -214,8 +231,12 @@ export default function LandingPage() {
               className="group liquid-glass-card rounded-2xl p-6 flex flex-col justify-between cursor-pointer"
             >
               <div>
-                <div className={`w-12 h-12 rounded-xl ${f.color} text-white flex items-center justify-center mb-4 shadow-md group-hover:scale-105 transition-transform duration-200`}>
-                  <f.icon className="w-6 h-6" />
+                <div className={`w-12 h-12 rounded-xl ${f.color} text-white flex items-center justify-center mb-4 shadow-md group-hover:scale-105 transition-transform duration-200 overflow-hidden`}>
+                  {f.image ? (
+                    <img src={f.image} alt={f.title} className="w-full h-full object-cover mix-blend-multiply" />
+                  ) : (
+                    f.icon && <f.icon className="w-6 h-6" />
+                  )}
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 group-hover:text-emerald-700 transition-colors mb-2">
                   {f.title}
@@ -223,8 +244,8 @@ export default function LandingPage() {
                 <p className="text-sm text-slate-600 leading-relaxed">{f.desc}</p>
               </div>
               <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 mt-5 pt-3 border-t border-slate-200/50">
-                <span>{t("explore")}</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform" />
+                <span>{f.comingSoon ? "Coming Soon" : t("explore")}</span>
+                {!f.comingSoon && <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform" />}
               </div>
             </Link>
           ))}

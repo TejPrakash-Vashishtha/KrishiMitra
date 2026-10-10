@@ -290,8 +290,8 @@ function FarmMap({
     const plotName = selectedParcel
       ? `Khasra ${selectedParcel.khasraNo}, ${selectedParcel.village}`
       : khasraInput.trim()
-      ? `Khasra ${khasraInput.trim()} Plot`
-      : "My Farm Plot";
+        ? `Khasra ${khasraInput.trim()} Plot`
+        : "My Farm Plot";
 
     saveTwinField({
       name: plotName,
@@ -338,21 +338,19 @@ function FarmMap({
             <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 text-xs">
               <button
                 onClick={() => setActiveLayer("SATELLITE")}
-                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                  activeLayer === "SATELLITE"
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${activeLayer === "SATELLITE"
                     ? "bg-white text-slate-900 shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Satellite
               </button>
               <button
                 onClick={() => setActiveLayer("NDVI")}
-                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                  activeLayer === "NDVI"
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${activeLayer === "NDVI"
                     ? "bg-emerald-600 text-white shadow-xs"
                     : "text-emerald-700 hover:text-emerald-900"
-                }`}
+                  }`}
               >
                 <Eye className="w-3 h-3" />
                 <span>NDVI Vigor</span>
@@ -588,10 +586,10 @@ function FarmMap({
             {selectedParcel
               ? `${selectedParcel.areaAcres} acres (${selectedParcel.areaHectares} ha)`
               : acres > 0
-              ? `${acres} acres traced`
-              : field
-              ? `${field.areaAcres} acres (saved)`
-              : "0.0 acres"}
+                ? `${acres} acres traced`
+                : field
+                  ? `${field.areaAcres} acres (saved)`
+                  : "0.0 acres"}
           </span>
 
           {selectedParcel && (
@@ -654,7 +652,7 @@ export default function DigitalTwinPage() {
   const [pulsing, setPulsing] = useState(false);
   const [fieldSavedTick, setFieldSavedTick] = useState(0);
   const [twinCoords, setTwinCoords] = useState<{ lat: number; lon: number } | null>(null);
-  
+
   // AI Predictor State
   const [predictedCrop, setPredictedCrop] = useState<string | null>(null);
   const [predicting, setPredicting] = useState(false);
@@ -846,7 +844,7 @@ export default function DigitalTwinPage() {
               </p>
             </div>
           </div>
-          
+
           <div className="bg-white/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border border-white/20">
             <div className="grid grid-cols-2 gap-4 text-sm font-semibold">
               <div><span className="text-emerald-200">Soil pH:</span> {t.ph}</div>
@@ -854,7 +852,7 @@ export default function DigitalTwinPage() {
               <div><span className="text-emerald-200">Temperature:</span> {t.airTemp}°C</div>
               <div><span className="text-emerald-200">Rainfall:</span> {t.rainToday} mm</div>
             </div>
-            
+
             <div className="flex flex-col sm:items-end gap-2">
               <button
                 onClick={() => handlePredict(t.ph, rootZone, t.airTemp, t.rainToday)}
@@ -864,7 +862,7 @@ export default function DigitalTwinPage() {
                 {predicting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
                 <span>{predicting ? "Analyzing..." : "Predict Best Crop"}</span>
               </button>
-              
+
               {predictedCrop && (
                 <div className="mt-2 text-center sm:text-right">
                   <span className="text-xs text-emerald-100 uppercase tracking-wider font-bold">AI Recommendation:</span>

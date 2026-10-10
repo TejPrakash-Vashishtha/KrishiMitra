@@ -1,313 +1,293 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Satellite, Trash2, Check, Sparkles } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { saveTwinField } from "../lib/digitalTwinData";
 
-// Pure client-side geometry — replaces the old /api/gis/calculate-field call,
-// which 405s on the static deploy. Same spherical math the backend used.
-function computeFieldGeometry(pts: { lat: number; lng: number }[]) {
-  if (pts.length < 3) {
-    return { acres: 0, hectares: 0, guntha: 0, perimeterMeters: 0, centroid: null as null | { lat: number; lng: number } };
-  }
-  const R = 6371000;
-  let area = 0;
-  let perimeter = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const p1 = pts[i];
-    const p2 = pts[(i + 1) % pts.length];
-    const lat1 = (p1.lat * Math.PI) / 180;
-    const lat2 = (p2.lat * Math.PI) / 180;
-    const dLng = ((p2.lng - p1.lng) * Math.PI) / 180;
-    area += dLng * (2 + Math.sin(lat1) + Math.sin(lat2));
-    // great-circle distance for perimeter
-    const dLat = (p2.lat - p1.lat) * (Math.PI / 180);
-    const dLon = (p2.lng - p1.lng) * (Math.PI / 180);
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-    perimeter += 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
-  }
-  area = Math.abs((area * R * R) / 2);
-  const acres = Math.round((area / 4046.86) * 100) / 100;
-  return {
-    acres,
-    hectares: Math.round((area / 10000) * 100) / 100,
-    guntha: Math.round(acres * 40 * 10) / 10,
-    perimeterMeters: Math.round(perimeter),
-    centroid: {
-      lat: Number((pts.reduce((s, p) => s + p.lat, 0) / pts.length).toFixed(5)),
-      lng: Number((pts.reduce((s, p) => s + p.lng, 0) / pts.length).toFixed(5)),
-    },
-  };
-}
+import { MapToolbar } from "../components/field-mapping/MapToolbar";
+import { MapCanvas } from "../components/field-mapping/MapCanvas";
+import { MetricsPanel } from "../components/field-mapping/MetricsPanel";
+import { Coordinate, toGeoJSONCoords, toLeafletCoords, validatePolygon, calculateMetrics, FieldMetrics } from "../lib/geometryUtils";
+import { useLanguage } from "../contexts/LanguageContext";
 
 export default function FieldMappingPage() {
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const polygonLayerRef = useRef<L.Polygon | null>(null);
-  const markersRef = useRef<L.CircleMarker[]>([]);
+  const { t } = useLanguage();
 
-  const [points, setPoints] = useState<{ lat: number; lng: number }[]>([
-    { lat: 20.4635, lng: 85.8812 },
-    { lat: 20.4652, lng: 85.8845 },
-    { lat: 20.4628, lng: 85.8860 },
-    { lat: 20.4611, lng: 85.8824 },
-  ]);
-
-  const [activeOverlay, setActiveOverlay] = useState<"TRUE_COLOR" | "NDVI" | "MOISTURE" | "DISEASE">("NDVI");
-  const [metrics, setMetrics] = useState<any>({ acres: 0, hectares: 0, guntha: 0, perimeterMeters: 0, centroid: null });
-  const [fieldName, setFieldName] = useState("Mahanadi Alluvial Plot #A");
+  const [points, setPoints] = useState<Coordinate[]>([]);
+  const [baseMap, setBaseMap] = useState<"SATELLITE" | "STREET">("SATELLITE");
+  const [metrics, setMetrics] = useState<FieldMetrics>({ acres: 0, hectares: 0, perimeterMeters: 0, centroid: null, accuracyPct: "0", areaSqm: 0 });
+  const [satelliteData, setSatelliteData] = useState<any>(null);
+  const [isFetchingSatellite, setIsFetchingSatellite] = useState(false);
+  
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  
+  const [fieldName, setFieldName] = useState("");
+  const [crop, setCrop] = useState("");
+  const [sowingDate, setSowingDate] = useState("");
+  const [khasraNo, setKhasraNo] = useState("");
+  const [village, setVillage] = useState("");
+
+  const [savedFields, setSavedFields] = useState<any[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [gpsConsent, setGpsConsent] = useState(false);
+
+  const [isWalking, setIsWalking] = useState(false);
+  const watchIdRef = useRef<number | null>(null);
+  const accuracySamples = useRef<number[]>([]);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+
+  const fetchFields = async () => {
+    try {
+      const token = localStorage.getItem("km_auth_token");
+      if (!token) return;
+      const res = await fetch("/api/fields", { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.success) setSavedFields(data.fields);
+    } catch (e) {
+      console.error("Failed to fetch fields", e);
+    }
+  };
+
+  useEffect(() => { fetchFields(); }, []);
 
   useEffect(() => {
-    if (!mapContainerRef.current) return;
-    if (!mapInstanceRef.current) {
-      const map = L.map(mapContainerRef.current).setView([20.4635, 85.8835], 16);
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 19,
-      }).addTo(map);
-
-      mapInstanceRef.current = map;
-
-      map.on("click", (e: L.LeafletMouseEvent) => {
-        setPoints((prev) => [...prev, { lat: Number(e.latlng.lat.toFixed(5)), lng: Number(e.latlng.lng.toFixed(5)) }]);
-      });
-    }
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && points.length > 0) {
+        e.preventDefault();
+        e.returnValue = "You have unsaved field changes. Are you sure you want to leave?";
       }
     };
-  }, []);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges, points]);
+
+  const validateAndSetPoints = (newPoints: Coordinate[]) => {
+    setHasUnsavedChanges(true);
+    const err = validatePolygon(newPoints);
+    setValidationError(err);
+    setPoints(newPoints);
+  };
 
   useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
+    setMetrics(calculateMetrics(points, accuracySamples.current));
+  }, [points]);
 
-    if (polygonLayerRef.current) {
-      map.removeLayer(polygonLayerRef.current);
+  const requestGpsConsent = () => {
+     if (gpsConsent) return true;
+     const ok = window.confirm("We need your location to trace your field boundaries accurately. Your location is strictly used for this map and saved only when you click 'Sync Plot'. Do you consent?");
+     if (ok) setGpsConsent(true);
+     return ok;
+  };
+
+  const locateMe = () => {
+    if (!requestGpsConsent() || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      pos => mapInstanceRef.current?.flyTo([pos.coords.latitude, pos.coords.longitude], 18),
+      () => alert("Could not read GPS. Ensure location permissions are granted."),
+      { enableHighAccuracy: true }
+    );
+  };
+  
+  const addPointHere = () => {
+    if (!requestGpsConsent() || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(pos => {
+       if (pos.coords.accuracy > 20) alert(`Warning: Accuracy is poor (${Math.round(pos.coords.accuracy)}m).`);
+       accuracySamples.current.push(pos.coords.accuracy);
+       const newPts = [...points, { lat: pos.coords.latitude, lng: pos.coords.longitude }];
+       validateAndSetPoints(newPts);
+       syncStateToMap(newPts);
+       mapInstanceRef.current?.setView([pos.coords.latitude, pos.coords.longitude]);
+    }, () => alert("GPS read failed."), { enableHighAccuracy: true });
+  };
+  
+  const toggleWalkBoundary = () => {
+    if (isWalking) {
+       if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
+       setIsWalking(false);
+    } else {
+       if (!requestGpsConsent() || !navigator.geolocation) return;
+       setIsWalking(true);
+       alert("Walk boundary started! Points drop automatically when you move (accuracy < 15m).");
+       watchIdRef.current = navigator.geolocation.watchPosition(pos => {
+          if (pos.coords.accuracy <= 15) {
+             accuracySamples.current.push(pos.coords.accuracy);
+             setPoints(prev => {
+                const newPts = [...prev, { lat: pos.coords.latitude, lng: pos.coords.longitude }];
+                syncStateToMap(newPts);
+                return newPts;
+             });
+          }
+       }, () => { alert("GPS error."); setIsWalking(false); }, { enableHighAccuracy: true });
     }
-    markersRef.current.forEach((m) => map.removeLayer(m));
-    markersRef.current = [];
+  };
 
-    if (points.length >= 3) {
-      const latlngs = points.map((p) => [p.lat, p.lng] as [number, number]);
-
-      let color = "#10b981";
-      if (activeOverlay === "NDVI") color = "#059669";
-      if (activeOverlay === "MOISTURE") color = "#2563eb";
-      if (activeOverlay === "DISEASE") color = "#e11d48";
-
-      const poly = L.polygon(latlngs, {
-        color,
-        fillColor: color,
-        fillOpacity: 0.35,
-        weight: 3,
-      }).addTo(map);
-
-      polygonLayerRef.current = poly;
-      map.fitBounds(poly.getBounds(), { padding: [40, 40] });
-
-      points.forEach((p, idx) => {
-        const marker = L.circleMarker([p.lat, p.lng], {
-          radius: 5,
-          color: "#fff",
-          fillColor: color,
-          fillOpacity: 1,
-          weight: 2,
-        }).addTo(map);
-        marker.bindTooltip(`Point #${idx + 1}`);
-        markersRef.current.push(marker);
-      });
-
-      // Client-side geometry (no backend needed — static deploy safe)
-      setMetrics(computeFieldGeometry(points));
-    }
-  }, [points, activeOverlay]);
+  const syncStateToMap = (pts: Coordinate[]) => {
+     if (!mapInstanceRef.current) return;
+     if (polygonLayerRef.current) mapInstanceRef.current.removeLayer(polygonLayerRef.current);
+     if (pts.length >= 3) {
+        const poly = L.polygon(pts, { color: "#10b981", fillColor: "#10b981", fillOpacity: 0.35, weight: 3 }).addTo(mapInstanceRef.current);
+        polygonLayerRef.current = poly;
+        poly.on('pm:edit', (e2) => validateAndSetPoints(((e2.layer as L.Polygon).getLatLngs()[0] as L.LatLng[]).map(ll => ({lat: ll.lat, lng: ll.lng}))));
+     }
+  };
 
   const clearPoints = () => {
+    if (!window.confirm("Clear the current drawing?")) return;
     setPoints([]);
-    setMetrics({ acres: 0, hectares: 0, guntha: 0, perimeterMeters: 0 });
+    setHasUnsavedChanges(false);
+    setValidationError(null);
+    accuracySamples.current = [];
+    if (polygonLayerRef.current && mapInstanceRef.current) {
+        mapInstanceRef.current.removeLayer(polygonLayerRef.current);
+        polygonLayerRef.current = null;
+    }
   };
 
-  const loadSamplePlot = () => {
-    setPoints([
-      { lat: 20.4635, lng: 85.8812 },
-      { lat: 20.4652, lng: 85.8845 },
-      { lat: 20.4628, lng: 85.8860 },
-      { lat: 20.4611, lng: 85.8824 },
-    ]);
+  const deleteFieldData = async (id: string) => {
+     if (!window.confirm("Are you sure you want to delete this field permanently?")) return;
+     try {
+       await fetch(`/api/fields/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${localStorage.getItem("km_auth_token")}` } });
+       fetchFields();
+     } catch (e) { alert("Failed to delete."); }
   };
 
-  const savePlotToDigitalTwin = () => {
-    // Persist locally with REAL computed geometry — no network, no backend dependency
-    const geom = computeFieldGeometry(points);
-    if (geom.acres <= 0 || !geom.centroid) return;
-    saveTwinField({
+  const loadField = async (field: any) => {
+     if (hasUnsavedChanges && !window.confirm("You have unsaved changes. Discard them?")) return;
+     try {
+       const coords = JSON.parse(field.geoJson);
+       const leafCoords = toLeafletCoords(coords);
+       setPoints(leafCoords);
+       setFieldName(field.name);
+       setCrop(field.crop || "");
+       setSowingDate(field.sowingDate || "");
+       setKhasraNo(field.khasraNo || "");
+       setVillage(field.village || "");
+       syncStateToMap(leafCoords);
+       mapInstanceRef.current?.fitBounds(L.polygon(leafCoords).getBounds());
+       setHasUnsavedChanges(false);
+       
+       // Phase 4: Fetch real Sentinel-2 satellite data
+       setIsFetchingSatellite(true);
+       setSatelliteData(null);
+       const token = localStorage.getItem("km_auth_token");
+       const res = await fetch(`/api/gis/satellite-data/${field.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+       });
+       const satResult = await res.json();
+       if (satResult.success) setSatelliteData(satResult.data);
+       setIsFetchingSatellite(false);
+       
+     } catch(e) { console.error(e); setIsFetchingSatellite(false); }
+  };
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      if (searchQuery.length < 3) { setSearchResults([]); return; }
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=in`);
+        setSearchResults((await res.json()).slice(0, 4));
+      } catch(e) { } 
+    }, 600);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  const savePlotToDB = async () => {
+    if (points.length < 3 || validationError) return;
+    setIsSyncing(true);
+    
+    const payload = {
       name: fieldName || "My Farm Plot",
-      areaAcres: geom.acres,
-      centroid: geom.centroid,
-      coordinates: points,
-      savedAt: new Date().toISOString(),
-    });
-    setMetrics(geom);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3500);
+      geoJson: JSON.stringify(toGeoJSONCoords(points)),
+      areaSqm: metrics.areaSqm,
+      crop, sowingDate, khasraNo, village
+    };
+
+    try {
+      const token = localStorage.getItem("km_auth_token");
+      const res = await fetch("/api/fields", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "API failed");
+      }
+      
+      setSavedSuccess(true);
+      setHasUnsavedChanges(false);
+      fetchFields();
+      setTimeout(() => setSavedSuccess(false), 3500);
+    } catch (e: any) {
+      if (e.message !== "API failed" && e.message !== "Failed to fetch") {
+         alert("Server rejected the save: " + e.message);
+      } else {
+         const queue = JSON.parse(localStorage.getItem("offline_fields_queue") || "[]");
+         queue.push(payload);
+         localStorage.setItem("offline_fields_queue", JSON.stringify(queue));
+         alert("No internet connection! Field saved locally. It will sync when you are back online.");
+      }
+      setHasUnsavedChanges(false);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleSearchResultClick = (res: any) => {
+    mapInstanceRef.current?.flyTo([res.lat, res.lon], 16);
+    setSearchResults([]);
+    setSearchQuery("");
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50 py-4 sm:py-8 px-2 sm:px-6 lg:px-8 pb-32">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-semibold mb-2">
-              <Satellite className="w-3.5 h-3.5" />
-              <span>GIS Geospatial Field Boundary & Spectral Satellite Overlays</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-              Interactive Farm Plot GIS Mapping
-            </h1>
-            <p className="text-xs text-slate-500 mt-1">
-              Click on the map to draw field boundary vertices, calculate acreage, and inspect simulated NDVI vegetation & soil moisture bands.
-            </p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 flex items-center gap-2">Interactive Farm Plot GIS Mapping</h1>
+            <p className="text-xs text-slate-500 mt-1">{t("trace_by_hand") || "Trace by hand, search for a village, or walk the boundary securely."}</p>
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={loadSamplePlot}
-              className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-xs font-bold text-slate-700 shadow-xs cursor-pointer"
-            >
-              Load Demo Plot
-            </button>
-            <button
-              onClick={clearPoints}
-              className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-rose-50 text-rose-600 transition-colors cursor-pointer"
-              title="Clear Polygon"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+          <div className="flex items-center gap-1.5 p-1 bg-slate-200/60 rounded-xl">
+             <button onClick={() => setBaseMap("STREET")} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${baseMap === "STREET" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}>Street</button>
+             <button onClick={() => setBaseMap("SATELLITE")} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${baseMap === "SATELLITE" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}>Satellite</button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8 bg-white rounded-3xl border border-slate-200/80 p-4 shadow-sm flex flex-col space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 p-1.5 rounded-2xl bg-slate-100 text-xs font-semibold">
-              <button
-                onClick={() => setActiveOverlay("NDVI")}
-                className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
-                  activeOverlay === "NDVI" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                🟢 NDVI Biomass Spectrum
-              </button>
-              <button
-                onClick={() => setActiveOverlay("MOISTURE")}
-                className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
-                  activeOverlay === "MOISTURE" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                💧 Soil Moisture Band
-              </button>
-              <button
-                onClick={() => setActiveOverlay("DISEASE")}
-                className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
-                  activeOverlay === "DISEASE" ? "bg-rose-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                🔴 Disease Risk Zones
-              </button>
-              <button
-                onClick={() => setActiveOverlay("TRUE_COLOR")}
-                className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
-                  activeOverlay === "TRUE_COLOR" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                🛰️ True Color
-              </button>
-            </div>
+        {validationError && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl flex items-center gap-2 text-xs font-bold">
+            <AlertTriangle className="w-4 h-4" /> {validationError}
+          </div>
+        )}
 
-            <div
-              ref={mapContainerRef}
-              className="w-full h-[450px] sm:h-[500px] rounded-2xl overflow-hidden border border-slate-200 relative z-10"
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+          <div className="lg:col-span-8 bg-white rounded-3xl border border-slate-200/80 p-3 sm:p-4 shadow-sm flex flex-col space-y-3">
+            <MapToolbar 
+              searchQuery={searchQuery} setSearchQuery={setSearchQuery} searchResults={searchResults} onSearchResultClick={handleSearchResultClick}
+              locateMe={locateMe} addPointHere={addPointHere} toggleWalkBoundary={toggleWalkBoundary} isWalking={isWalking}
             />
 
-            <div className="flex items-center justify-between text-[11px] text-slate-500 px-2">
-              <span>Points Placed: {points.length} (Min 3 required)</span>
-              <span>Coordinates Centroid: {metrics.centroid?.lat || 20.4631}&deg; N, {metrics.centroid?.lng || 85.8835}&deg; E</span>
+            <MapCanvas 
+              baseMap={baseMap} points={points} setPoints={setPoints} validateAndSetPoints={validateAndSetPoints} 
+              mapInstanceRef={mapInstanceRef} polygonLayerRef={polygonLayerRef}
+            />
+
+            <div className="flex items-center justify-between text-[11px] text-slate-500 px-2 flex-wrap">
+              <span>Points: {points.length} (Min 3)</span>
+              <span>Centroid: {metrics.centroid ? `${metrics.centroid.lat}° N, ${metrics.centroid.lng}° E` : "Not mapped"}</span>
+              <button onClick={clearPoints} className="text-rose-600 font-bold hover:underline">Clear Map</button>
             </div>
           </div>
 
-          <div className="lg:col-span-4 space-y-5">
-            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
-              <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
-                Geospatial Land Metrics
-              </h3>
-
-              <div>
-                <span className="text-xs text-slate-400 block">Total Cultivated Area</span>
-                <div className="text-3xl font-extrabold text-slate-900 mt-0.5">
-                  {metrics.acres} <span className="text-base font-semibold text-slate-500">Acres</span>
-                </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  {metrics.hectares} Hectares &bull; {metrics.guntha} Gunthas (Odisha Standard)
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Perimeter</span>
-                  <span className="font-bold text-slate-800">{metrics.perimeterMeters} meters</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Zonal Soil Type</span>
-                  <span className="font-bold text-slate-800">Alluvial Deltaic</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-3">
-              <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
-                Satellite Spectral Indices
-              </h3>
-
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between p-2.5 rounded-xl bg-emerald-50 text-emerald-950">
-                  <span>Mean Polygon NDVI:</span>
-                  <span className="font-bold">{metrics.spectralIndices?.meanNdvi || 0.78}</span>
-                </div>
-                <div className="flex justify-between p-2.5 rounded-xl bg-blue-50 text-blue-950">
-                  <span>Root-Zone Soil Moisture:</span>
-                  <span className="font-bold">{metrics.spectralIndices?.soilMoisture10cmPercent || 36.5}%</span>
-                </div>
-                <div className="flex justify-between p-2.5 rounded-xl bg-slate-50 text-slate-900">
-                  <span>Canopy Uniformity:</span>
-                  <span className="font-bold">{metrics.spectralIndices?.vegetationUniformityPercent || 91.2}%</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-3">
-              <label className="block text-xs font-bold text-slate-700">Plot Name</label>
-              <input
-                type="text"
-                value={fieldName}
-                onChange={(e) => setFieldName(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-
-              <button
-                onClick={savePlotToDigitalTwin}
-                disabled={points.length < 3}
-                className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {savedSuccess ? <Check className="w-4 h-4 text-white" /> : <Sparkles className="w-4 h-4" />}
-                <span>{savedSuccess ? "Synced to Digital Twin!" : "Sync Plot to Digital Twin"}</span>
-              </button>
-            </div>
-          </div>
+          <MetricsPanel 
+             pointsLength={points.length} validationError={validationError} metrics={metrics} isSyncing={isSyncing} savedSuccess={savedSuccess}
+             fieldName={fieldName} setFieldName={setFieldName} village={village} setVillage={setVillage} khasraNo={khasraNo} setKhasraNo={setKhasraNo} crop={crop} setCrop={setCrop}
+             savePlotToDB={savePlotToDB} savedFields={savedFields} loadField={loadField} deleteFieldData={deleteFieldData}
+             satelliteData={satelliteData} isFetchingSatellite={isFetchingSatellite}
+          />
         </div>
       </div>
     </div>
